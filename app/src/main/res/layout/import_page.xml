@@ -1,0 +1,103 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 垂直容器：標題 + 表頭 + 資料 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 固定大標題 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/dark_blue"
+            android:textColor="@color/white"
+            android:text="進  貨"
+            android:textSize="50sp"
+            android:gravity="center"
+            android:padding="12dp"
+            android:textStyle="bold" />
+
+        <!-- 固定表頭 -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <TableLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:stretchColumns="*"
+                android:shrinkColumns="*">
+
+                <TableRow android:background="@color/light_blue">
+                    <TextView
+                        android:text="進貨日期"
+                        android:textStyle="bold"
+                        android:layout_width="100dp"
+                        android:textSize="30sp"
+                        android:background="@drawable/table_pattern"
+                        android:textColor="@color/black"
+                        android:gravity="center" />
+                    <TextView
+                        android:text="廠商"
+                        android:textStyle="bold"
+                        android:layout_width="150dp"
+                        android:textSize="30sp"
+                        android:background="@drawable/table_pattern"
+                        android:textColor="@color/black"
+                        android:gravity="center" />
+                    <TextView
+                        android:text="品項"
+                        android:textStyle="bold"
+                        android:layout_width="150dp"
+                        android:textSize="30sp"
+                        android:background="@drawable/table_pattern"
+                        android:textColor="@color/black"
+                        android:gravity="center" />
+                    <TextView
+                        android:text="總數量(單位)"
+                        android:textStyle="bold"
+                        android:layout_width="100dp"
+                        android:textSize="30sp"
+                        android:background="@drawable/table_pattern"
+                        android:textColor="@color/black"
+                        android:gravity="center" />
+                    <TextView
+                        android:text="刪除"
+                        android:textStyle="bold"
+                        android:layout_width="100dp"
+                        android:textSize="30sp"
+                        android:background="@drawable/table_pattern"
+                        android:textColor="@color/black"
+                        android:gravity="center" />
+                </TableRow>
+                <ScrollView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent">
+                    <TableLayout
+                        android:id="@+id/importTable"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:stretchColumns="*"
+                        android:shrinkColumns="*" />
+                </ScrollView>
+            </TableLayout>
+        </HorizontalScrollView>
+    </LinearLayout>
+
+    <!-- 懸浮新增按鈕 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAdd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:contentDescription="新增資料"
+        android:src="@android:drawable/ic_input_add"
+        app:backgroundTint="@color/dark_blue"
+        app:tint="@android:color/white" />
+</FrameLayout>

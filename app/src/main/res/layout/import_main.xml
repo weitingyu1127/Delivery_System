@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 可捲動內容 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF">
+
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/main_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="24dp"
+            app:flexWrap="wrap"
+            app:flexDirection="row"
+            app:justifyContent="flex_start"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            />
+    </ScrollView>
+
+    <!-- 固定右下角的 FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAdd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:contentDescription="新增資料"
+        android:src="@android:drawable/ic_input_add"
+        app:backgroundTint="@color/dark_blue"
+        app:tint="@android:color/white" />
+</FrameLayout>

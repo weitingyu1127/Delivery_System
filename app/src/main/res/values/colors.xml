@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色 -->
+    <color name="primary_green">#4CAF50</color> <!-- 用於標題背景 -->
+    <color name="white">#FFFFFF</color>         <!-- 白字 -->
+    <color name="light_blue">#D0E6F7</color>
+    <color name="dark_blue">#003366</color>
+    <color name="black">#000000</color>
+    <color name="gray">#999999</color>
+    <color name="red">#F44336</color>
+
+    <!-- 錯誤 / 成功提示色 -->
+    <color name="success_green">#81C784</color>
+
+    <!-- 背景色 -->
+    <color name="background">#FAFAFA</color>
+</resources>
