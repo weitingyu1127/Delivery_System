@@ -1,8 +1,13 @@
 package com.example.deliverysystem;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -64,8 +69,24 @@ public class BaseActivity extends AppCompatActivity {
                 }
             }
             if (id == R.id.nav_setting) {
-                startActivity(new Intent(this, SettingMain.class));
+                LayoutInflater inflater = LayoutInflater.from(BaseActivity.this); // 🔧 修正 this
+                View dialogView = inflater.inflate(R.layout.dialog_password, null);
+                EditText editPassword = dialogView.findViewById(R.id.editPassword);
 
+                new AlertDialog.Builder(BaseActivity.this) // 🔧 修正 this
+                        .setTitle("密碼驗證")
+                        .setView(dialogView)
+                        .setPositiveButton("確定", (dialog, which) -> {
+                            String password = editPassword.getText().toString().trim();
+                            if (DataSource.getPasswords().contains(password)) {
+                                Intent intent = new Intent(BaseActivity.this, SettingMain.class);
+                                startActivity(intent);
+                            } else {
+                                Toast.makeText(BaseActivity.this, "密碼錯誤", Toast.LENGTH_SHORT).show(); // 🔧 修正 this
+                            }
+                        })
+                        .setNegativeButton("取消", null)
+                        .show();
             }
             drawerLayout.closeDrawer(GravityCompat.START);
             return true;
