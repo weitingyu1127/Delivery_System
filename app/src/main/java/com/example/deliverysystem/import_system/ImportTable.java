@@ -7,9 +7,13 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TableLayout;
-import android.widget.TableRow;
+import android.widget.ArrayAdapter;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,10 +25,17 @@ import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ImportTable extends BaseActivity {
     private String vendorName;
+    private List<ImportRecord> fullRecords = new ArrayList<>();
+    private EditText searchInput;
+    private ImageView clearFilterBtn;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,6 +46,20 @@ public class ImportTable extends BaseActivity {
             startActivity(intent);
         });
         vendorName = getIntent().getStringExtra("vendor_name");
+
+        searchInput = findViewById(R.id.search_input);
+        clearFilterBtn = findViewById(R.id.clear_btn);
+
+        searchInput.setShowSoftInputOnFocus(false);
+        searchInput.setOnClickListener(v -> {
+            showDatePickerDialog();
+        });
+
+        clearFilterBtn.setOnClickListener(v -> {
+            searchInput.setText("");
+            filterTableByProduct("請選擇產品");
+        });
+
     }
     @Override
     protected void onResume() {
@@ -46,84 +71,164 @@ public class ImportTable extends BaseActivity {
     private void getImportData() {
         ConnectDB.getImportRecords(vendorName, importList -> {
             DataSource.setImportRecords(importList);
-            Log.d("DEBUG", "Import List size = " + importList.size());
             runOnUiThread(this::onImportDataReady);
         });
     }
 
     private void onImportDataReady() {
-        List<ImportRecord> records = DataSource.getImportRecords();
-        for (ImportRecord record : records) {
-            addTableRow(
-                    record.getImportId(), // 如果你有 id 欄位
-                    record.getImportDate(),
-                    record.getVendor(),
-                    record.getProduct(),
-                    record.getQuantity()
-            );
+        fullRecords = DataSource.getImportRecords();
+
+        Set<String> productSet = new LinkedHashSet<>();
+        for (ImportRecord record : fullRecords) {
+            productSet.add(record.getProduct());
+        }
+
+        List<String> spinnerProductList = new ArrayList<>(productSet);
+        spinnerProductList.add(0, "請選擇產品");
+
+        Spinner spinner = findViewById(R.id.product_spinner);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                R.layout.spinner_pattern,
+                R.id.spinner_text,
+                spinnerProductList
+        );
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown_pattern);
+        spinner.setAdapter(adapter);
+
+        spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                String selectedProduct = spinnerProductList.get(position);
+                filterTableByProduct(selectedProduct);
+            }
+
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {
+            }
+        });
+
+        // 4. 預設顯示全部
+        filterTableByProduct("請選擇產品");
+    }
+
+    private void filterTableByProduct(String product) {
+        clearTable();
+        for (ImportRecord record : fullRecords) {
+            if (product.equals("請選擇產品") || record.getProduct().equals(product)) {
+                addTableRow(
+                        record.getImportId(),
+                        record.getImportDate(),
+                        record.getVendor(),
+                        record.getProduct(),
+                        record.getQuantity()
+                );
+            }
+        }
+    }
+    private void filterTableByDate(String date) {
+        clearTable();
+        for (ImportRecord record : fullRecords) {
+            if (record.getImportDate().equals(date)) {
+                addTableRow(
+                        record.getImportId(),
+                        record.getImportDate(),
+                        record.getVendor(),
+                        record.getProduct(),
+                        record.getQuantity()
+                );
+            }
         }
     }
     private void clearTable() {
-        TableLayout tableLayout = findViewById(R.id.importTable);
+        LinearLayout tableLayout = findViewById(R.id.importTable);
         tableLayout.removeAllViews();
     }
 
     private void addTableRow(int importId, String date, String vendorName, String itemName, String summaryAmount) {
-        TableLayout tableLayout = findViewById(R.id.importTable);
-        TableRow tableRow = new TableRow(this);
+        LinearLayout tableLayout = findViewById(R.id.importTable);
 
-        // 共用樣式
-        int textSize = 18;
+        LinearLayout rowLayout = new LinearLayout(this);
+        rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+        rowLayout.setPadding(12, 15, 12, 15);
+        rowLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+
+        int textSize = 16;
         int padding = 8;
 
-        // 建立 TextView 欄位
-        TextView tableDate = createCell(date, 100, textSize, padding);
-        TextView tableVendor = createCell(vendorName, 150, textSize, padding);
-        TextView tableItem = createCell(itemName, 150, textSize, padding);
-        TextView tableSum = createCell(summaryAmount, 100, textSize, padding);
+        // 建立 Cell 方法（TextView）
+        TextView tableDate = createCell(date, 0.5f, textSize, padding);
+        TextView tableVendor = createCell(vendorName, 0.5f, textSize, padding);
+        TextView tableItem = createCell(itemName, 0.5f, textSize, padding);
+        TextView tableSum = createCell(summaryAmount, 0.5f, textSize, padding);
 
-        // 刪除按鈕
+        LinearLayout btnContainer = new LinearLayout(this);
+        LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.5f);
+        btnContainer.setLayoutParams(containerParams);
+        btnContainer.setGravity(Gravity.CENTER); // 讓內部 button 置中
+
         AppCompatButton btnDelete = new AppCompatButton(this);
         btnDelete.setText("刪除");
-        btnDelete.setTextSize(16f);
+        btnDelete.setTextSize(14f);
         btnDelete.setTextColor(Color.WHITE);
-        btnDelete.setLayoutParams(new TableRow.LayoutParams(100, ViewGroup.LayoutParams.MATCH_PARENT));
         btnDelete.setBackgroundResource(R.drawable.table_button);
-        // delete DB
+
+        // 設定固定大小（例如 84x34 dp）
+        int width = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 84, getResources().getDisplayMetrics());
+        int height = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics());
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(width, height);
+        btnDelete.setLayoutParams(btnParams);
+
+        // 放入容器
+        btnContainer.addView(btnDelete);
+
         btnDelete.setOnClickListener(v -> {
             showDeleteDialog(vendorName, itemName, summaryAmount, () -> {
-                // 確認刪除時執行
                 ConnectDB.deleteImportRecordById(String.valueOf(importId), success -> {
                     if (success) {
-                        tableLayout.removeView(tableRow); // 成功才刪除 UI row
+                        tableLayout.removeView(rowLayout);
                     } else {
-                        Toast.makeText(this, "刪除失敗，請稍後再試", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show();
                     }
                 });
             });
         });
 
-        // 加入所有欄位
-        tableRow.addView(tableDate);
-        tableRow.addView(tableVendor);
-        tableRow.addView(tableItem);
-        tableRow.addView(tableSum);
-        tableRow.addView(btnDelete);
-        tableLayout.addView(tableRow);
+        // 加入所有欄位到該列
+        rowLayout.addView(tableDate);
+        rowLayout.addView(tableVendor);
+        rowLayout.addView(tableItem);
+        rowLayout.addView(tableSum);
+        rowLayout.addView(btnContainer);
+
+        // 建立分隔線
+        View divider = new View(this);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 1);
+        dividerParams.setMargins(12, 0, 12, 0);
+        divider.setLayoutParams(dividerParams);
+        divider.setBackgroundColor(Color.parseColor("#999999"));
+
+        // 加入列與分隔線
+        tableLayout.addView(rowLayout);
+        tableLayout.addView(divider);
     }
-    private TextView createCell(String text, int widthDp, int textSizeSp, int paddingDp) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(textSizeSp);
-        tv.setTextColor(getResources().getColor(R.color.black));
-        tv.setBackgroundResource(R.drawable.table_pattern);
-        tv.setGravity(Gravity.CENTER);
-        int widthPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
-        tv.setLayoutParams(new TableRow.LayoutParams(widthPx, ViewGroup.LayoutParams.MATCH_PARENT));
-        int paddingPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, paddingDp, getResources().getDisplayMetrics());
-        tv.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
-        return tv;
+
+    private TextView createCell(String text, float weight, int textSize, int padding) {
+        TextView textView = new TextView(this);
+        textView.setText(text);
+        textView.setTextSize(textSize);
+        textView.setTextColor(Color.BLACK);
+        textView.setGravity(Gravity.CENTER);
+        textView.setPadding(padding, padding, padding, padding);
+        textView.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight));
+        return textView;
     }
+
     private void showDeleteDialog(String vendor, String product, String quantity, Runnable onConfirmDelete) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("確認刪除");
@@ -140,7 +245,25 @@ public class ImportTable extends BaseActivity {
         });
 
         builder.setNegativeButton("取消", null);
-
         builder.show();
     }
+
+    private void showDatePickerDialog() {
+        java.util.Calendar calendar = java.util.Calendar.getInstance();
+        int year = calendar.get(java.util.Calendar.YEAR);
+        int month = calendar.get(java.util.Calendar.MONTH);
+        int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
+
+        android.app.DatePickerDialog datePickerDialog = new android.app.DatePickerDialog(
+                this,
+                (view, selectedYear, selectedMonth, selectedDay) -> {
+                    String selectedDate = String.format("%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay);
+                    searchInput.setText(selectedDate);
+                    filterTableByDate(selectedDate);  // 🔸依日期過濾
+                },
+                year, month, day
+        );
+        datePickerDialog.show();
+    }
+
 }

@@ -75,13 +75,13 @@
                             android:layout_height="55dp"
                             android:layout_marginBottom="12dp"
                             android:background="@drawable/spinner_pattern"
-                            android:drawableEnd="@drawable/ic_spinner_drop_down" />
+                            android:drawableEnd="@drawable/ic_spinner" />
 
                         <!-- 分隔線 -->
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
-                            android:background="#A6A6A6"
+                            android:background="@color/gray"
                             android:layout_marginTop="15dp"
                             android:layout_marginBottom="15dp" />
 
