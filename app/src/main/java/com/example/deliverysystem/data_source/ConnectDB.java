@@ -164,30 +164,49 @@ public class ConnectDB {
     // === 匯入資料紀錄 ===
     public static void getInspectRecords(String type, Consumer<List<InspectRecord>> callback) {
         String url = BASE_URL + "getInspectRecords.php?type=" + Uri.encode(type);
-        Log.d("URL",url);
         fetchJsonArrayFromUrl(url, jsonArray -> {
             List<InspectRecord> records = new ArrayList<>();
             for (int i = 0; i < jsonArray.length(); i++) {
                 try {
                     JSONObject obj = jsonArray.getJSONObject(i);
-                    InspectRecord record = new InspectRecord(
-                            obj.getInt("import_id"),
-                            obj.getString("import_date"),
-                            obj.getString("vendor"),
-                            obj.getString("product"),
-                            obj.getString("spec"),
-                            obj.getString("package_complete"),
-                            obj.getString("vector_complete"),
-                            obj.getString("package_label"),
-                            obj.getString("quantity"),
-                            obj.getString("validDate"),
-                            obj.getString("pallet_complete"),
-                            obj.getString("coa"),
-                            obj.optString("inspector_staff", ""), // 防止為 null
-                            obj.optString("confirm_staff", "")
-                    );
-                    Log.d("InspectRecord", "Parsed Record: " + record.toString());
-                    records.add(record);
+
+                    // 取基本欄位
+                    int importId = obj.getInt("import_id");
+                    String importDate = obj.getString("import_date");
+                    String vendor = obj.getString("vendor");
+                    String product = obj.getString("product");
+                    String spec = obj.getString("spec");
+                    String packageComplete = obj.getString("package_complete");
+                    String vectorComplete = obj.getString("vector_complete");
+                    String packageLabel = obj.getString("package_label");
+                    String quantity = obj.getString("quantity");
+                    String validDate = obj.getString("validDate");
+                    String palletComplete = obj.getString("pallet_complete");
+                    String coa = obj.getString("coa");
+                    String inspectorStaff = obj.optString("inspector_staff", "");
+                    String confirmStaff = obj.optString("confirm_staff", "");
+
+                    if ("原料".equals(type)) {
+                        String odor = obj.getString("odor");
+                        String degree = obj.getString("degree");
+
+                        InspectRecord record = new InspectRecord(
+                                importId, importDate, vendor, product, spec,
+                                packageComplete, vectorComplete, packageLabel,
+                                quantity, validDate, palletComplete, coa,
+                                inspectorStaff, confirmStaff, odor, degree
+                        );
+                        records.add(record);
+                    } else {
+                        // 非原料
+                        InspectRecord record = new InspectRecord(
+                                importId, importDate, vendor, product, spec,
+                                packageComplete, vectorComplete, packageLabel,
+                                quantity, validDate, palletComplete, coa,
+                                inspectorStaff, confirmStaff, "", ""
+                        );
+                        records.add(record);
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -195,6 +214,7 @@ public class ConnectDB {
             callback.accept(records);
         });
     }
+
     public static void getImportRecords(String vendorName, Consumer<List<ImportRecord>> callback) {
         String url = BASE_URL + "getImportRecords.php?vendor=" + Uri.encode(vendorName);
 
@@ -217,7 +237,6 @@ public class ConnectDB {
             }
             callback.accept(records);
         });
-
     }
     public static void deleteImportRecordById(String importId, Consumer<Boolean> callback) {
         new Thread(() -> {
@@ -290,8 +309,8 @@ public class ConnectDB {
             new Handler(Looper.getMainLooper()).post(() -> callback.accept(finalSuccess));
         }).start();
     }
-    public static void updateInspectRecord(int id, String spec, String validDate,
-                                               boolean packageComplete, boolean vector,
+    public static void updateInspectRecord(String type, int id, String spec, String validDate,
+                                               boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                                boolean packageLabel, boolean pallet,
                                                boolean coa, String inspector, String confirmer,
                                                Consumer<Boolean> callback) {
@@ -299,10 +318,13 @@ public class ConnectDB {
             try {
                 StringBuilder urlBuilder = new StringBuilder(BASE_URL + "updateInspectRecord.php");
                 urlBuilder.append("?import_id=").append(id);
+                urlBuilder.append("&type=").append(type);
                 urlBuilder.append("&spec=").append(URLEncoder.encode(spec, "UTF-8"));
                 urlBuilder.append("&validDate=").append(URLEncoder.encode(validDate, "UTF-8"));
                 urlBuilder.append("&package_complete=").append(packageComplete ? "1" : "0");
+                urlBuilder.append("&odorCheck=").append(odorCheck ? "1" : "0");
                 urlBuilder.append("&vector=").append(vector ? "1" : "0");
+                urlBuilder.append("&degree=").append(URLEncoder.encode(degree, "UTF-8"));
                 urlBuilder.append("&package_label=").append(packageLabel ? "1" : "0");
                 urlBuilder.append("&pallet_complete=").append(pallet ? "1" : "0");
                 urlBuilder.append("&coa=").append(coa ? "1" : "0");
@@ -331,19 +353,20 @@ public class ConnectDB {
             }
         }).start();
     }
-    public static void getFilteredInspectRecords(String vendor, String product, String inspector, String confimer, String date, Consumer<List<InspectRecord>> callback) {
+    public static void getFilteredInspectRecords(String type, String vendor, String product, String inspector, String confimer, String date, Consumer<List<InspectRecord>> callback) {
         String url = BASE_URL + "getFilteredInspectRecords.php"
-                + "?vendor=" + Uri.encode(vendor)
+                + "?type=" + Uri.encode(type)
+                + "&vendor=" + Uri.encode(vendor)
                 + "&product=" + Uri.encode(product)
                 + "&inspector=" + Uri.encode(inspector)
                 + "&confirmer=" + Uri.encode(confimer)
                 + "&date=" + Uri.encode(date);
-        Log.d("url",url);
         fetchJsonArrayFromUrl(url, jsonArray -> {
             List<InspectRecord> records = new ArrayList<>();
             for (int i = 0; i < jsonArray.length(); i++) {
                 try {
                     JSONObject obj = jsonArray.getJSONObject(i);
+
                     InspectRecord record = new InspectRecord(
                             obj.getInt("import_id"),
                             obj.getString("import_date"),
@@ -358,7 +381,9 @@ public class ConnectDB {
                             obj.getString("pallet_complete"),
                             obj.getString("coa"),
                             obj.optString("inspector_staff", ""),
-                            obj.optString("confirm_staff", "")
+                            obj.optString("confirm_staff", ""),
+                            obj.getString("odor"),
+                            obj.getString("degree")
                     );
                     records.add(record);
                 } catch (Exception e) {

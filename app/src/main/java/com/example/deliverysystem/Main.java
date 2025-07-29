@@ -5,9 +5,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import android.widget.LinearLayout;
 
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.import_system.ImportMain;
@@ -16,7 +16,7 @@ import com.example.deliverysystem.setting_system.SettingMain;
 
 public class Main extends BaseActivity {
 
-    Button btnImport, btnInspect, btnSetting;
+    LinearLayout btnImport, btnInspect, btnSetting;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

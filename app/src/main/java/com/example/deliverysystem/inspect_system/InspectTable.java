@@ -41,8 +41,12 @@ public class InspectTable extends BaseActivity {
     private String type;
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.inspect_page);
         type = getIntent().getStringExtra("type");
+        if ("物料".equals(type)) {
+            setContentView(R.layout.inspect_material_table); // 原料的 layout
+        } else if ("原料".equals(type)) {
+            setContentView(R.layout.inspect_ingredient_table);  // 物料的 layout
+        }
 
         TextView textSelectedDate = findViewById(R.id.textselectedDate);
         ImageView calendarIcon = findViewById(R.id.calendarIcon);
@@ -81,7 +85,7 @@ public class InspectTable extends BaseActivity {
             if (inspector.equals("請選擇")) inspector = "";
             if (confirmer.equals("請選擇")) confirmer = "";
             if (date.equals("")) date = "";
-            fetchFilteredRecords(vendor, product, inspector, confirmer, date);
+            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date);
         });
         getInspectData();
     }
@@ -100,31 +104,58 @@ public class InspectTable extends BaseActivity {
         setupSpinner(type);
         List<InspectRecord> records = DataSource.getInspectRecords();
         Log.d("addtableRow", records.toString());
+
         for (InspectRecord record : records) {
-            addTableRow(
-                    record.getImportId(),
-                    record.getImportDate(),
-                    record.getVendor(),
-                    record.getProduct(),
-                    record.getStandard(),
-                    record.getPackageComplete(),
-                    record.getVector(),
-                    record.getPackageLabel(),
-                    record.getQuantity(),
-                    record.getValidDate(),
-                    record.getPalletComplete(),
-                    record.getCoa(),
-                    record.getInspectorStaff(),
-                    record.getConfirmStaff()
-            );
+            if ("原料".equals(type)) {
+                addTableRow(
+                        record.getImportId(),
+                        record.getImportDate(),
+                        record.getVendor(),
+                        record.getProduct(),
+                        record.getStandard(),
+                        record.getPackageComplete(),
+                        record.getVector(),
+                        record.getPackageLabel(),
+                        record.getQuantity(),
+                        record.getValidDate(),
+                        record.getPalletComplete(),
+                        record.getCoa(),
+                        record.getInspectorStaff(),
+                        record.getConfirmStaff(),
+                        record.getOdor(),         // ✅ 新增：異味 (Boolean)
+                        record.getDegree(),       // ✅ 新增：溫度 (nteger)
+                        type
+                );
+            } else {
+                addTableRow(
+                        record.getImportId(),
+                        record.getImportDate(),
+                        record.getVendor(),
+                        record.getProduct(),
+                        record.getStandard(),
+                        record.getPackageComplete(),
+                        record.getVector(),
+                        record.getPackageLabel(),
+                        record.getQuantity(),
+                        record.getValidDate(),
+                        record.getPalletComplete(),
+                        record.getCoa(),
+                        record.getInspectorStaff(),
+                        record.getConfirmStaff(),
+                        null,
+                        null,
+                        type
+                );
+            }
         }
     }
+
     private void clearTable() {
         TableLayout tableLayout = findViewById(R.id.inspectTable);
         tableLayout.removeAllViews();
     }
-    private void fetchFilteredRecords(String vendor, String product, String inspector,String confirmer, String date) {
-        ConnectDB.getFilteredInspectRecords(vendor, product, inspector, confirmer, date, records -> {
+    private void fetchFilteredRecords(String type, String vendor, String product, String inspector, String confirmer, String date) {
+        ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, records -> {
             DataSource.setInspectRecords(records);
             runOnUiThread(this::onInspectDataReady);
             TextView textSelectedDate = findViewById(R.id.textselectedDate);
@@ -230,8 +261,7 @@ public class InspectTable extends BaseActivity {
         }
     }
     private void addTableRow(int importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
-                             String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed) {
-
+                             String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed, String odor, String degree, String type) {
         TableLayout tableLayout = findViewById(R.id.inspectTable);
         TableRow tableRow = new TableRow(this);
 
@@ -247,11 +277,21 @@ public class InspectTable extends BaseActivity {
 
         TextView packageComplete = createCell("null".equals(packageConfirm) ? "" : "1".equals(packageConfirm) ? "✓" : "✗", 60, textSize, padding);
         TextView vectorCheck = createCell( "null".equals(vector) ? "" : "1".equals(vector) ? "✓" : "✗", 50, textSize, padding);
-        TextView labelCheck = createCell("null".equals(packageLabel) ? "" : "1".equals(packageLabel) ? "✓" : "✗", 100, textSize, padding);
+        int widthDp;
+        if ("原料".equals(type)){
+            widthDp = 80;
+        }else{
+            widthDp = 100;
+        };
+        TextView labelCheck = createCell("null".equals(packageLabel) ? "" : "1".equals(packageLabel) ? "✓" : "✗", widthDp, textSize, padding);
         TextView quantity = createCell(amount, 50, textSize, padding);
         TextView expireDate = createCell("null".equals(validDate) ? "" : validDate, 120, textSize, padding);
         TextView palletCheck = createCell("null".equals(pallet) ? "" : "1".equals(pallet) ? "✓" : "✗", 60, textSize, padding);
         TextView coaCheck = createCell("null".equals(COA) ? "" : "1".equals(COA) ? "✓" : "✗", 50, textSize, padding);
+        Log.d("odor", odor);
+        Log.d("degree", degree);
+        TextView odorCheck = createCell("null".equals(odor) ? "" : "1".equals(odor) ? "✓" : "✗", 50, textSize, padding);
+        TextView degreeDisplay = createCell("null".equals(degree) ? "" : degree + "°C", 70, textSize, padding);
 
         // 加入所有欄位
         tableRow.addView(deliveredDate);
@@ -259,7 +299,13 @@ public class InspectTable extends BaseActivity {
         tableRow.addView(productItem);
         tableRow.addView(productSpec);
         tableRow.addView(packageComplete);
+        if ("原料".equals(type)){
+            tableRow.addView(odorCheck);
+        }
         tableRow.addView(vectorCheck);
+        if ("原料".equals(type)){
+            tableRow.addView(degreeDisplay);
+        }
         tableRow.addView(labelCheck);
         tableRow.addView(quantity);
         tableRow.addView(expireDate);
@@ -278,8 +324,8 @@ public class InspectTable extends BaseActivity {
             btnInspect.setTextColor(Color.WHITE);
             btnInspect.setLayoutParams(new TableRow.LayoutParams(50, ViewGroup.LayoutParams.MATCH_PARENT));
             btnInspect.setBackgroundResource(R.drawable.table_button);
-            btnInspect.setOnClickListener(v -> showInspectDialog(importId, date, itemName, spec, packageConfirm, vector, packageLabel,
-                    amount, validDate, pallet, COA, inspector, confirmed, false));
+            btnInspect.setOnClickListener(v -> showInspectDialog(type, importId, date, itemName, spec, packageConfirm, vector, packageLabel,
+                    amount, validDate, pallet, COA, inspector, confirmed, odor, degree, false));
             tableRow.addView(btnInspect);
         }
 
@@ -295,8 +341,8 @@ public class InspectTable extends BaseActivity {
             btnConfirm.setTextColor(Color.WHITE);
             btnConfirm.setLayoutParams(new TableRow.LayoutParams(50, ViewGroup.LayoutParams.MATCH_PARENT));
             btnConfirm.setBackgroundResource(R.drawable.table_button);
-            btnConfirm.setOnClickListener(v -> showPasswordDialog(importId, date, itemName, spec, packageConfirm, vector, packageLabel,
-                    amount, validDate, pallet, COA, inspector, confirmed));
+            btnConfirm.setOnClickListener(v -> showPasswordDialog(type, importId, date, itemName, spec, packageConfirm, vector, packageLabel,
+                    amount, validDate, pallet, COA, inspector, confirmed, odor, degree));
             tableRow.addView(btnConfirm);
         }
         tableLayout.addView(tableRow);
@@ -314,8 +360,8 @@ public class InspectTable extends BaseActivity {
         tv.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
         return tv;
     }
-    private void showInspectDialog(int importId, String date, String itemName, String spec, String packageConfirm, String vector,
-                                   String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed, boolean confirm) {
+    private void showInspectDialog(String type, int importId, String date, String itemName, String spec, String packageConfirm, String vector, String packageLabel,
+              String amount, String validDate, String pallet, String COA, String inspector, String confirmed, String odorCheck, String degreeDisplay, boolean confirm) {
 
         View dialogView = LayoutInflater.from(this).inflate(R.layout.inspect_dialog, null);
         setupSpinnerData(dialogView, R.id.inspector, DataSource.getInspector(), inspector);
@@ -326,6 +372,14 @@ public class InspectTable extends BaseActivity {
             LinearLayout extraLayout = dialogView.findViewById(R.id.confirmLayout);
             extraLayout.setVisibility(View.VISIBLE);
         }
+        LinearLayout odorLayout = dialogView.findViewById(R.id.odorLayout);
+        LinearLayout degreeLayout = dialogView.findViewById(R.id.degreeLayout);
+
+        if (!"原料".equals(type)) {
+            odorLayout.setVisibility(View.GONE);
+            degreeLayout.setVisibility(View.GONE);
+        }
+
         // 更新dialog資訊
         EditText editValidDate = dialogView.findViewById(R.id.validDate);
         if (validDate != null && !validDate.toLowerCase().contains("null") && !validDate.trim().isEmpty()) {
@@ -363,8 +417,17 @@ public class InspectTable extends BaseActivity {
         CheckBox packageCheck = dialogView.findViewById(R.id.packageCheck);
         packageCheck.setChecked("1".equals(packageConfirm));
 
+        CheckBox odorCheckBox = dialogView.findViewById(R.id.odorCheck);
+        odorCheckBox.setChecked("1".equals(odorCheck));
+
         CheckBox vectorsCheck = dialogView.findViewById(R.id.vectorsCheck);
         vectorsCheck.setChecked("1".equals(vector));
+
+        TextView textDegreeDisplay = dialogView.findViewById(R.id.editDegree);
+        textDegreeDisplay.setText(
+                (degreeDisplay == null || degreeDisplay.toLowerCase().contains("null") || degreeDisplay.trim().isEmpty())
+                        ? "" : degreeDisplay.trim()
+        );
 
         CheckBox packageLabelCheck = dialogView.findViewById(R.id.packageLabelCheck);
         packageLabelCheck.setChecked("1".equals(packageLabel));
@@ -390,6 +453,7 @@ public class InspectTable extends BaseActivity {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             // 取得 checkbox 狀態
             boolean isPackageChecked = packageCheck.isChecked();
+            boolean isOdorChecked = odorCheckBox.isChecked();
             boolean isVectorChecked = vectorsCheck.isChecked();
             boolean isPackageLabelChecked = packageLabelCheck.isChecked();
             boolean isPalletChecked = palletCheck.isChecked();
@@ -397,6 +461,7 @@ public class InspectTable extends BaseActivity {
 
             // 取得輸入值
             String specText = textSpec.getText().toString().trim();
+            String degreeText = textDegreeDisplay.getText().toString().trim();
             String validDateText = editValidDate.getText().toString().trim();
 
             Spinner inspectorSpinner = dialogView.findViewById(R.id.inspector);
@@ -409,7 +474,10 @@ public class InspectTable extends BaseActivity {
                 Toast.makeText(InspectTable.this, "請輸入規格", Toast.LENGTH_SHORT).show();
                 return;
             }
-
+            if (type == "原料" && degreeText.isEmpty()) {
+                Toast.makeText(InspectTable.this, "請輸入溫度", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (validDateText.isEmpty()) {
                 Toast.makeText(InspectTable.this, "請選擇有效日期", Toast.LENGTH_SHORT).show();
                 return;
@@ -428,11 +496,14 @@ public class InspectTable extends BaseActivity {
 
             // 呼叫資料庫更新
             ConnectDB.updateInspectRecord(
+                    type,
                     importId,
                     specText,
                     validDateText,
                     isPackageChecked,
+                    isOdorChecked,
                     isVectorChecked,
+                    degreeText,
                     isPackageLabelChecked,
                     isPalletChecked,
                     isCoaChecked,
@@ -449,10 +520,9 @@ public class InspectTable extends BaseActivity {
                     }
             );
         });
-
     }
-    private void showPasswordDialog(int importId, String date, String itemName, String spec, String packageConfirm, String vector,
-                                    String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed) {
+    private void showPasswordDialog(String type, int importId, String date, String itemName, String spec, String packageConfirm, String vector,
+                                    String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed, String odorCheck, String degreeDisplay) {
         LayoutInflater inflater = LayoutInflater.from(this);
         View dialogView = inflater.inflate(R.layout.dialog_password, null);
         EditText editPassword = dialogView.findViewById(R.id.editPassword);
@@ -463,8 +533,8 @@ public class InspectTable extends BaseActivity {
                 .setPositiveButton("確定", (dialog, which) -> {
                     String password = editPassword.getText().toString().trim();
                     if ((DataSource.getPasswords().contains(password))) {
-                        showInspectDialog(importId, date, itemName, spec, packageConfirm, vector, packageLabel,
-                                amount, validDate, pallet, COA, inspector, confirmed, true);
+                        showInspectDialog(type, importId, date, itemName, spec, packageConfirm, vector, packageLabel,
+                                amount, validDate, pallet, COA, inspector, confirmed, odorCheck, degreeDisplay, true);
                     } else {
                         Toast.makeText(this, "密碼錯誤", Toast.LENGTH_SHORT).show();
                     }

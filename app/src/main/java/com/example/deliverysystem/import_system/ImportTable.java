@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -45,6 +46,7 @@ public class ImportTable extends BaseActivity {
     private void getImportData() {
         ConnectDB.getImportRecords(vendorName, importList -> {
             DataSource.setImportRecords(importList);
+            Log.d("DEBUG", "Import List size = " + importList.size());
             runOnUiThread(this::onImportDataReady);
         });
     }
@@ -63,12 +65,7 @@ public class ImportTable extends BaseActivity {
     }
     private void clearTable() {
         TableLayout tableLayout = findViewById(R.id.importTable);
-        int childCount = tableLayout.getChildCount();
-
-        // 從第1列開始移除（第0列通常是標題）
-        if (childCount > 1) {
-            tableLayout.removeViews(1, childCount - 1);
-        }
+        tableLayout.removeAllViews();
     }
 
     private void addTableRow(int importId, String date, String vendorName, String itemName, String summaryAmount) {
@@ -146,5 +143,4 @@ public class ImportTable extends BaseActivity {
 
         builder.show();
     }
-
 }

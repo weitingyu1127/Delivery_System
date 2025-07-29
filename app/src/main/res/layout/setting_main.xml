@@ -5,46 +5,161 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF">
 
-    <Button
-        android:id="@+id/supplier"
-        android:layout_width="300sp"
-        android:layout_height="300dp"
-        android:text="廠商"
-        android:backgroundTint="@color/light_blue"
-        android:textColor="#000000"
-        android:textSize="30sp"
-        app:layout_constraintEnd_toStartOf="@id/employees"
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="設定 Setting"
+        android:textSize="32sp"
+        android:textColor="@color/black"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:background="@drawable/title_pattern"
+        android:gravity="start"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        android:layout_marginEnd="50dp" />
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="50dp"/>
 
-    <Button
-        android:id="@+id/employees"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        android:text="員工"
-        android:backgroundTint="@color/light_blue"
-        android:textColor="#000000"
-        android:textSize="30sp"
-        app:layout_constraintStart_toEndOf="@id/supplier"
-        app:layout_constraintEnd_toEndOf="@id/password"
+    <!-- 進貨按鈕 (左邊) -->
+    <LinearLayout
+        android:id="@+id/supplier"
+        android:layout_width="302dp"
+        android:layout_height="349dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/option_white_pattern"
+        android:padding="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginStart="50dp"
-        android:layout_marginEnd="50dp" />
+        app:layout_constraintEnd_toStartOf="@+id/employees"
+        android:layout_marginStart="20dp"
+        app:layout_constraintHorizontal_chainStyle="packed">
 
-    <Button
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardBackgroundColor="#66B084">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_home"
+                android:scaleType="centerInside" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 兩行文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="廠商"
+            android:textSize="32sp"
+            android:textColor="#000000"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="6dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Manufacturer"
+            android:textSize="24sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/employees"
+        android:layout_width="302dp"
+        android:layout_height="349dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/option_blue_pattern"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        app:layout_constraintStart_toEndOf="@id/supplier"
+        app:layout_constraintEnd_toStartOf="@+id/password"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardBackgroundColor="#569FBC">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_user"
+                android:scaleType="centerInside" />
+        </com.google.android.material.card.MaterialCardView>
+        <!-- 中文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="員工"
+            android:textSize="32sp"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="6dp"
+            android:layout_marginTop="20dp"/>
+
+        <!-- 英文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Staff"
+            android:textSize="24sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
+
+    <!-- 設定按鈕 (右邊) -->
+    <LinearLayout
         android:id="@+id/password"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        android:text="密碼"
-        android:backgroundTint="@color/light_blue"
-        android:textColor="#000000"
-        android:textSize="30sp"
+        android:layout_width="302dp"
+        android:layout_height="349dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/option_white_pattern"
         app:layout_constraintStart_toEndOf="@id/employees"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginEnd="20dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardBackgroundColor="#F2B46D">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_password" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 中文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="密碼"
+            android:textSize="32sp"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="6dp"
+            android:layout_marginTop="20dp"/>
+
+        <!-- 英文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Password"
+            android:textSize="24sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

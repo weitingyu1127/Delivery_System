@@ -7,10 +7,13 @@ public class InspectRecord {
             packageLabel, quantity, validDate, palletComplete, coa,
             inspectorStaff, confirmStaff;
 
+    private String odor;
+    private String degree;
+
     public InspectRecord(int import_id, String importDate, String vendor, String product, String standard,
                          String packageComplete, String vector, String packageLabel,
                          String quantity, String validDate, String palletComplete,
-                         String coa, String inspectorStaff, String confirmStaff) {
+                         String coa, String inspectorStaff, String confirmStaff, String odor, String degree) {
         this.import_id = import_id;
         this.importDate = importDate;
         this.vendor = vendor;
@@ -25,8 +28,11 @@ public class InspectRecord {
         this.coa = coa;
         this.inspectorStaff = inspectorStaff;
         this.confirmStaff = confirmStaff;
+        this.odor = odor;
+        this.degree = degree;
     }
 
+    // ✅ Getter for all fields
     public int getImportId() { return import_id; }
     public String getImportDate() { return importDate; }
     public String getVendor() { return vendor; }
@@ -41,4 +47,7 @@ public class InspectRecord {
     public String getCoa() { return coa; }
     public String getInspectorStaff() { return inspectorStaff; }
     public String getConfirmStaff() { return confirmStaff; }
+
+    public String getOdor() { return odor; }
+    public String getDegree() { return degree; }
 }

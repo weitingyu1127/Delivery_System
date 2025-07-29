@@ -46,14 +46,10 @@ public class BaseActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         // 加入menu icon 按鈕
-        drawerToggle = new ActionBarDrawerToggle(
-                this, drawerLayout, toolbar,
-                R.string.navigation_drawer_open,
-                R.string.navigation_drawer_close);
-        drawerToggle.getDrawerArrowDrawable().setColor(ContextCompat.getColor(this, R.color.white));
-        drawerLayout.addDrawerListener(drawerToggle);
-        drawerToggle.syncState();
+        toolbar.setNavigationIcon(R.drawable.ic_menu);
 
+        // 點擊圖示開啟 drawer
+        toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         // 選單項目點擊
         navigationView.setNavigationItemSelectedListener(menuItem -> {
             int id = menuItem.getItemId();

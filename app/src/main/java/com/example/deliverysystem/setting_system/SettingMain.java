@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.example.deliverysystem.BaseActivity;
@@ -14,7 +15,7 @@ import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 
 public class SettingMain extends BaseActivity {
-    Button btnSupplier, btnEmployees, btnPassword;
+    LinearLayout btnSupplier, btnEmployees, btnPassword;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

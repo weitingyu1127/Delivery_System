@@ -3,15 +3,16 @@
     <item
         android:id="@+id/nav_import_records"
         android:title="進貨紀錄"
-        android:icon="@android:drawable/ic_input_add"
+        android:icon="@drawable/ic_document"
          />
     <item
         android:id="@+id/nav_inspect_records"
         android:title="驗收紀錄"
-        android:icon="@android:drawable/ic_menu_view"
+        android:icon="@drawable/ic_checklist"
         />
     <item
         android:id="@+id/nav_setting"
         android:title="設定"
-        android:icon="@android:drawable/ic_menu_manage" />
+        android:icon="@drawable/ic_setting_white" />
+
 </menu>
