@@ -3,11 +3,10 @@ package com.example.deliverysystem.setting_system;
 import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.InputType;
-import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -69,41 +68,28 @@ public class SettingEmployee extends BaseActivity {
     }
 
     private void addEmployeeItem(FlexboxLayout parentLayout, String name, boolean isChecked) {
-        LinearLayout itemLayout = new LinearLayout(this);
-        itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-        itemLayout.setPadding(16, 16, 16, 16);
-        itemLayout.setGravity(Gravity.CENTER_VERTICAL);
-        itemLayout.setLayoutParams(new FlexboxLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        View itemView = getLayoutInflater().inflate(R.layout.employee_item_pattern, parentLayout, false);
 
-        CheckBox checkBox = new CheckBox(this);
-        // 建立 listener（不要馬上綁）
-        CompoundButton.OnCheckedChangeListener listener = (buttonView, checked) -> {
-            ConnectDB.updateAuthorityEmployee(name, checked, SettingEmployee.this, (success, message) -> {
-                Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
-            });
-        };
+        TextView nameView = itemView.findViewById(R.id.nameText);
+        ImageView toggleIcon = itemView.findViewById(R.id.toggleIcon);
 
-        // 避免 setChecked 時觸發 listener
-        checkBox.setOnCheckedChangeListener(null);
-        checkBox.setChecked(isChecked);
-        checkBox.setOnCheckedChangeListener(listener);
-
-        TextView nameView = new TextView(this);
         nameView.setText(name);
-        nameView.setTextSize(18);
-        nameView.setTextAlignment(TextView.TEXT_ALIGNMENT_CENTER);
-        nameView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        toggleIcon.setImageResource(isChecked ? R.drawable.circle_checked : R.drawable.circle_unchecked_gray);
 
-        itemLayout.addView(checkBox);
-        itemLayout.addView(nameView);
-        parentLayout.addView(itemLayout);
+        toggleIcon.setOnClickListener(v -> {
+            boolean newChecked = !isChecked;
+            ConnectDB.updateAuthorityEmployee(name, newChecked, SettingEmployee.this, (success, message, confirmList, inspectorList) -> {
+                Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
+                if (success) {
+                    DataSource.setConfirmPersons(confirmList);
+                    DataSource.setInspectors(inspectorList);
+                    populateEmployeeList(); // 🔄 正確刷新
+                }
+            });
+        });
+        parentLayout.addView(itemView);
     }
+
     private void showAddEmployeeDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("新增員工名稱");
@@ -112,7 +98,7 @@ public class SettingEmployee extends BaseActivity {
         input.setInputType(InputType.TYPE_CLASS_TEXT);
         input.setHint("請輸入姓名");
 
-        int padding = (int) getResources().getDisplayMetrics().density * 16; // 16dp
+        int padding = (int) getResources().getDisplayMetrics().density * 16;
         input.setPadding(padding, padding, padding, padding);
 
         // 設定寬度為 MATCH_PARENT

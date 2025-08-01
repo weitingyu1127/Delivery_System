@@ -4,7 +4,7 @@ public class InspectRecord {
 
     private int import_id;
     private String importDate, vendor, product, standard, packageComplete, vector,
-            packageLabel, quantity, validDate, palletComplete, coa,
+            packageLabel, quantity, validDate, palletComplete, coa, note,
             inspectorStaff, confirmStaff;
 
     private String odor;
@@ -13,7 +13,7 @@ public class InspectRecord {
     public InspectRecord(int import_id, String importDate, String vendor, String product, String standard,
                          String packageComplete, String vector, String packageLabel,
                          String quantity, String validDate, String palletComplete,
-                         String coa, String inspectorStaff, String confirmStaff, String odor, String degree) {
+                         String coa, String note, String inspectorStaff, String confirmStaff, String odor, String degree) {
         this.import_id = import_id;
         this.importDate = importDate;
         this.vendor = vendor;
@@ -26,6 +26,7 @@ public class InspectRecord {
         this.validDate = validDate;
         this.palletComplete = palletComplete;
         this.coa = coa;
+        this.note = note;
         this.inspectorStaff = inspectorStaff;
         this.confirmStaff = confirmStaff;
         this.odor = odor;
@@ -45,6 +46,7 @@ public class InspectRecord {
     public String getValidDate() { return validDate; }
     public String getPalletComplete() { return palletComplete; }
     public String getCoa() { return coa; }
+    public String getNote() { return note; }
     public String getInspectorStaff() { return inspectorStaff; }
     public String getConfirmStaff() { return confirmStaff; }
 

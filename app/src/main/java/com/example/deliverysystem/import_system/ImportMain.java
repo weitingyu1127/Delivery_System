@@ -138,27 +138,6 @@ public class ImportMain extends BaseActivity {
             filtered = industryMap.getOrDefault(filter, new ArrayList<>());
         }
 
-//        for (String vendor : filtered) {
-//            Button vendorButton = new Button(this);
-//            vendorButton.setText(vendor);
-//            vendorButton.setTextColor(Color.BLACK);
-//            vendorButton.setTextSize(16);
-//            vendorButton.setBackgroundResource(R.drawable.btn_category_white);
-//
-//            FlexboxLayout.LayoutParams params = new FlexboxLayout.LayoutParams(
-//                    ViewGroup.LayoutParams.WRAP_CONTENT,
-//                    ViewGroup.LayoutParams.WRAP_CONTENT
-//            );
-//            params.setMargins(16, 8, 16, 8);
-//            vendorButton.setLayoutParams(params);
-//
-//            vendorButton.setOnClickListener(v -> {
-//                Intent intent = new Intent(this, ImportTable.class);
-//                intent.putExtra("vendor_name", vendor);
-//                startActivity(intent);
-//            });
-//            vendorContainer.addView(vendorButton);
-//        }
         for (String vendor : filtered) {
             LinearLayout itemLayout = new LinearLayout(this);
             itemLayout.setOrientation(LinearLayout.HORIZONTAL);

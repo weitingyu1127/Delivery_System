@@ -2,14 +2,15 @@ package com.example.deliverysystem.inspect_system;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.LinearLayout;
 
 import com.example.deliverysystem.BaseActivity;
 import com.example.deliverysystem.R;
 
 public class InspectMain extends BaseActivity {
 
-    private Button ingredientButton;
-    private Button materialButton;
+    private LinearLayout ingredientButton;
+    private LinearLayout materialButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,7 +27,6 @@ public class InspectMain extends BaseActivity {
         });
 
         materialButton.setOnClickListener(v -> {
-            // TODO: 開啟物料頁面
             Intent intent = new Intent(InspectMain.this, InspectTable.class);
             intent.putExtra("type", "物料");
             startActivity(intent);

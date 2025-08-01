@@ -10,6 +10,7 @@
         <item name="colorPrimaryVariant">@color/primary_green</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/success_green</item>
+        <item name="materialButtonStyle">@style/MyDefaultButtonStyle</item>
     </style>
 </resources>
 

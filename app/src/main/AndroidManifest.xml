@@ -24,13 +24,18 @@
             </intent-filter>
         </activity>
         <activity android:name=".import_system.ImportTable" />
-        <activity android:name=".inspect_system.InspectTable" />
         <activity android:name=".import_system.ImportItem" />
         <activity android:name=".import_system.ImportMain" />
+
+        <activity android:name=".inspect_system.InspectTable" />
         <activity android:name=".inspect_system.InspectMain" />
+        <activity android:name=".inspect_system.InspectDetail" />
+
         <activity android:name=".setting_system.SettingMain" />
         <activity android:name=".setting_system.SettingSupplier" />
         <activity android:name=".setting_system.SettingEmployee" />
+        <activity android:name=".setting_system.AddSupplier" />
+
     </application>
 
 </manifest>

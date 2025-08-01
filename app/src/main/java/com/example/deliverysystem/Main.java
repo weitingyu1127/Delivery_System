@@ -21,7 +21,7 @@ public class Main extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main_page); // 替換成你的 layout 名稱
+        setContentView(R.layout.main_page);
 
         btnImport = findViewById(R.id.import_page);
         btnInspect = findViewById(R.id.inspect_page);

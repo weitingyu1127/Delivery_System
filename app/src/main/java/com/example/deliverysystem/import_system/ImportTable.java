@@ -4,7 +4,6 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -175,7 +174,7 @@ public class ImportTable extends BaseActivity {
         btnDelete.setText("刪除");
         btnDelete.setTextSize(14f);
         btnDelete.setTextColor(Color.WHITE);
-        btnDelete.setBackgroundResource(R.drawable.table_button);
+        btnDelete.setBackgroundResource(R.drawable.btn_orange);
 
         // 設定固定大小（例如 84x34 dp）
         int width = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 84, getResources().getDisplayMetrics());

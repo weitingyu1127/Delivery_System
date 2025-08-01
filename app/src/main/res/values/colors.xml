@@ -9,6 +9,7 @@
     <color name="gray">#999999</color>
     <color name="red">#F44336</color>
     <color name="orange">#F2B46D</color>
+    <color name="divider">#EBEBEB</color>
     <!-- 錯誤 / 成功提示色 -->
     <color name="success_green">#81C784</color>
     <!-- 背景色 -->
@@ -18,4 +19,5 @@
     <color name="sidebar_bg">#495b70</color> <!-- 側邊欄背景（淡藍） -->
     <color name="nav_item_selected">#617083</color> <!-- 點選項目背景 -->
     <color name="nav_item_pressed">#617083</color> <!-- 點擊時的背景 -->
+
 </resources>

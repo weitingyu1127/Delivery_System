@@ -2,35 +2,117 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:layout_height="match_parent">
 
-    <Button
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="驗收Acceptance"
+        android:textSize="32sp"
+        android:textColor="@color/black"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:background="@drawable/title_pattern"
+        android:gravity="start"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="50dp"/>
+
+    <!-- 進貨按鈕 (左邊) -->
+    <LinearLayout
         android:id="@+id/ingredient"
-        android:layout_width="400sp"
-        android:layout_height="400dp"
-        android:text="原料"
-        android:backgroundTint="@color/light_blue"
-        android:textColor="#000000"
-        android:textSize="30sp"
-        app:layout_constraintEnd_toStartOf="@id/material"
+        android:layout_width="302dp"
+        android:layout_height="349dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/option_white_pattern"
+        android:padding="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        android:layout_marginEnd="70dp" />
+        app:layout_constraintEnd_toStartOf="@+id/material"
+        android:layout_marginEnd="20dp"
+        app:layout_constraintHorizontal_chainStyle="packed">
 
-    <Button
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardBackgroundColor="#66B084">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_ingredient"
+                android:scaleType="centerInside" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 兩行文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="原料"
+            android:textSize="32sp"
+            android:textColor="#000000"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="6dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ingredient"
+            android:textSize="24sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/material"
-        android:layout_width="400dp"
-        android:layout_height="400dp"
-        android:text="物料"
-        android:backgroundTint="@color/light_blue"
-        android:textColor="#000000"
-        android:textSize="30sp"
+        android:layout_width="302dp"
+        android:layout_height="349dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/option_blue_pattern"
         app:layout_constraintStart_toEndOf="@id/ingredient"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginStart="70dp" />
+        android:layout_marginEnd="20dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            app:cardCornerRadius="60dp"
+            app:cardBackgroundColor="#569FBC">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_filter" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 中文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="物料"
+            android:textSize="32sp"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="6dp"
+            android:layout_marginTop="20dp"/>
+
+        <!-- 英文文字 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Material"
+            android:textSize="24sp"
+            android:textColor="@android:color/black"/>
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

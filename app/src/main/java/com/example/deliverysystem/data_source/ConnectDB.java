@@ -6,11 +6,13 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.example.deliverysystem.call_back.UpdateEmployeeCallback;
 import com.example.deliverysystem.import_system.ImportRecord;
 import com.example.deliverysystem.inspect_system.InspectRecord;
 
@@ -183,6 +185,7 @@ public class ConnectDB {
                     String validDate = obj.getString("validDate");
                     String palletComplete = obj.getString("pallet_complete");
                     String coa = obj.getString("coa");
+                    String note = obj.getString("note");
                     String inspectorStaff = obj.optString("inspector_staff", "");
                     String confirmStaff = obj.optString("confirm_staff", "");
 
@@ -193,7 +196,7 @@ public class ConnectDB {
                         InspectRecord record = new InspectRecord(
                                 importId, importDate, vendor, product, spec,
                                 packageComplete, vectorComplete, packageLabel,
-                                quantity, validDate, palletComplete, coa,
+                                quantity, validDate, palletComplete, coa, note,
                                 inspectorStaff, confirmStaff, odor, degree
                         );
                         records.add(record);
@@ -202,7 +205,7 @@ public class ConnectDB {
                         InspectRecord record = new InspectRecord(
                                 importId, importDate, vendor, product, spec,
                                 packageComplete, vectorComplete, packageLabel,
-                                quantity, validDate, palletComplete, coa,
+                                quantity, validDate, palletComplete, coa, note,
                                 inspectorStaff, confirmStaff, "", ""
                         );
                         records.add(record);
@@ -312,7 +315,7 @@ public class ConnectDB {
     public static void updateInspectRecord(String type, int id, String spec, String validDate,
                                                boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                                boolean packageLabel, boolean pallet,
-                                               boolean coa, String inspector, String confirmer,
+                                               boolean coa, String note, String inspector, String confirmer,
                                                Consumer<Boolean> callback) {
         new Thread(() -> {
             try {
@@ -328,14 +331,14 @@ public class ConnectDB {
                 urlBuilder.append("&package_label=").append(packageLabel ? "1" : "0");
                 urlBuilder.append("&pallet_complete=").append(pallet ? "1" : "0");
                 urlBuilder.append("&coa=").append(coa ? "1" : "0");
+                urlBuilder.append("&note=").append(URLEncoder.encode(note, "UTF-8"));
                 urlBuilder.append("&inspector_staff=").append(URLEncoder.encode(inspector, "UTF-8"));
 
-                if (confirmer != null && !confirmer.trim().isEmpty() && !"請選擇".equals(confirmer)) {
+                if (confirmer != null && !confirmer.trim().isEmpty() && !"確認人員".equals(confirmer)) {
                     urlBuilder.append("&confirm_staff=").append(URLEncoder.encode(confirmer, "UTF-8"));
                 }
 
                 String urlStr = urlBuilder.toString();
-                Log.d("url", urlStr);
                 URL url = new URL(urlStr);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
@@ -380,6 +383,7 @@ public class ConnectDB {
                             obj.getString("validDate"),
                             obj.getString("pallet_complete"),
                             obj.getString("coa"),
+                            obj.getString("note"),
                             obj.optString("inspector_staff", ""),
                             obj.optString("confirm_staff", ""),
                             obj.getString("odor"),
@@ -428,25 +432,45 @@ public class ConnectDB {
             }
         }).start();
     }
-    public static void addProduct(String vendorName, String productName, Consumer<Boolean> callback) {
+
+    public static void addProduct(Context context, String vendor, List<String> products, Consumer<Boolean> callback) {
         new Thread(() -> {
-            try {
-                String urlStr = BASE_URL + "addProduct.php"
-                        + "?vendor=" + URLEncoder.encode(vendorName, "UTF-8")
-                        + "&product=" + URLEncoder.encode(productName, "UTF-8");
+            List<String> failedList = new ArrayList<>();
+            boolean hasSuccess = false;
 
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
+            for (String product : products) {
+                try {
+                    String urlStr = BASE_URL + "addProduct.php"
+                            + "?vendor=" + URLEncoder.encode(vendor, "UTF-8")
+                            + "&product=" + URLEncoder.encode(product, "UTF-8");
 
-                int responseCode = conn.getResponseCode();
-                boolean success = (responseCode == 200);
+                    URL url = new URL(urlStr);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
 
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(success));
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+                    int responseCode = conn.getResponseCode();
+
+                    if (responseCode == 200) {
+                        hasSuccess = true; // 至少有一筆成功
+                    } else if (responseCode != 409) {
+                        // 非重複錯誤，視為失敗
+                        failedList.add(product);
+                    }
+
+                    conn.disconnect();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    failedList.add(product);
+                }
             }
+
+            boolean finalSuccess = hasSuccess;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (!failedList.isEmpty()) {
+                    Toast.makeText(context, "部分品項新增失敗：" + failedList, Toast.LENGTH_LONG).show();
+                }
+                callback.accept(finalSuccess); // 至少有一筆成功才回傳 true
+            });
         }).start();
     }
     public static void addVendorWithProducts(Context context, String name, String type, String industry, List<String> products, final Callback callback) {
@@ -560,8 +584,8 @@ public class ConnectDB {
             }
         }).start();
     }
-    public static void updateAuthorityEmployee(String name, boolean isChecked, Context context, UpdatePasswordCallback callback) {
-        Log.d("function", name + isChecked);
+
+    public static void updateAuthorityEmployee(String name, boolean isChecked, Context context, UpdateEmployeeCallback callback) {
         new Thread(() -> {
             try {
                 URL url = new URL(BASE_URL + "update_authority_employee.php");
@@ -588,15 +612,34 @@ public class ConnectDB {
                 boolean success = json.getBoolean("success");
                 String message = json.getString("message");
 
-                ((Activity) context).runOnUiThread(() -> callback.onResult(success, message));
+                List<String> confirmList = new ArrayList<>();
+                List<String> inspectorList = new ArrayList<>();
+
+                JSONArray confirmArray = json.optJSONArray("confirmList");
+                if (confirmArray != null) {
+                    for (int i = 0; i < confirmArray.length(); i++) {
+                        confirmList.add(confirmArray.getString(i));
+                    }
+                }
+
+                JSONArray inspectorArray = json.optJSONArray("inspectorList");
+                if (inspectorArray != null) {
+                    for (int i = 0; i < inspectorArray.length(); i++) {
+                        inspectorList.add(inspectorArray.getString(i));
+                    }
+                }
+
+                ((Activity) context).runOnUiThread(() ->
+                        callback.onResult(success, message, confirmList, inspectorList));
 
             } catch (Exception e) {
                 e.printStackTrace();
                 ((Activity) context).runOnUiThread(() ->
-                        callback.onResult(false, "錯誤：" + e.getMessage()));
+                        callback.onResult(false, "錯誤：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
             }
         }).start();
     }
+
     public static void addEmployee(String name, Context context, EmployeeUpdateCallback callback) {
         new Thread(() -> {
             try {
