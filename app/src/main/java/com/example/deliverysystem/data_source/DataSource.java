@@ -35,7 +35,10 @@ public class DataSource {
         VendorInfo info = vendorProductMap.get(vendor);
         return info != null ? info.getProducts() : new ArrayList<>();
     }
-
+    public static String getTypeByVendor(String vendor) {
+        VendorInfo info = vendorProductMap.get(vendor);
+        return info != null ? info.getType() : "";
+    }
     // 職員
     private static List<String> inspectors = new ArrayList<>();
     private static List<String> confirmPerson = new ArrayList<>();

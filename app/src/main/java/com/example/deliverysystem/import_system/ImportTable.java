@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -57,17 +58,18 @@ public class ImportTable extends BaseActivity {
         clearFilterBtn.setOnClickListener(v -> {
             searchInput.setText("");
             filterTableByProduct("請選擇產品");
+            getImportData();
         });
 
     }
     @Override
     protected void onResume() {
         super.onResume();
-        clearTable();
         getImportData();
     }
 
     private void getImportData() {
+        clearTable();
         ConnectDB.getImportRecords(vendorName, importList -> {
             DataSource.setImportRecords(importList);
             runOnUiThread(this::onImportDataReady);
@@ -144,7 +146,7 @@ public class ImportTable extends BaseActivity {
         tableLayout.removeAllViews();
     }
 
-    private void addTableRow(int importId, String date, String vendorName, String itemName, String summaryAmount) {
+    private void addTableRow(String importId, String date, String vendorName, String itemName, String summaryAmount) {
         LinearLayout tableLayout = findViewById(R.id.importTable);
 
         LinearLayout rowLayout = new LinearLayout(this);
@@ -232,8 +234,8 @@ public class ImportTable extends BaseActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("確認刪除");
 
-        String message = "\n\n"
-                + "廠商：" + vendor + "\n"
+        String message =
+                "廠商：" + vendor + "\n"
                 + "產品：" + product + "\n"
                 + "數量：" + quantity;
 

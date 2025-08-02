@@ -68,7 +68,6 @@ public class SettingSupplier extends BaseActivity {
         for (Map.Entry<String, List<String>> entry : industryMap.entrySet()) {
             String industry = entry.getKey();
             List<String> vendors = entry.getValue();
-            Log.d("IndustryMapLog1", "產業: " + industry + "，廠商數: " + vendors.size() + "，廠商清單: " + vendors);
         }
 
         // 建立分類按鈕列
@@ -104,10 +103,7 @@ public class SettingSupplier extends BaseActivity {
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK) {
-                        ConnectDB.getVendorProductData(vendorProductMap -> {
-                            DataSource.setVendorProductMap(vendorProductMap);
-                            runOnUiThread(() -> renderVendors(currentFilter));
-                        });
+                        getSupplierData();
                     }
                 }
         );
@@ -117,10 +113,15 @@ public class SettingSupplier extends BaseActivity {
             Intent intent = new Intent(SettingSupplier.this, AddSupplier.class);
             supplierLauncher.launch(intent);
         });
+
+        getSupplierData();
     }
     @Override
     protected void onResume() {
         super.onResume();
+        getSupplierData();
+    }
+    protected void getSupplierData(){
         ConnectDB.getVendorProductData(vendorProductMap -> {
             DataSource.setVendorProductMap(vendorProductMap);
             runOnUiThread(() -> renderVendors(currentFilter));
@@ -144,8 +145,8 @@ public class SettingSupplier extends BaseActivity {
                 List<String> products = info.getProducts();
             }
         });
-    }
 
+    }
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
         return Math.round(dp * density);

@@ -5,6 +5,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -52,7 +53,6 @@ public class ImportItem extends AppCompatActivity {
         selectedItemInputContainer = findViewById(R.id.selectedItemInputContainer);
 
         vendorProductMap = DataSource.getVendorProductMap();
-
         setupVendorSpinner();
 
         ImageView backIcon = findViewById(R.id.back_icon);
@@ -83,6 +83,8 @@ public class ImportItem extends AppCompatActivity {
                 btnSubmit = null;
 
                 List<String> products = DataSource.getProductsByVendor(selectedVendor);
+                String type = DataSource.getTypeByVendor(selectedVendor);
+
                 TextView noDataText = findViewById(R.id.no_data_text);
                 if (products.isEmpty()) {
                     noDataText.setVisibility(View.VISIBLE);
@@ -92,7 +94,7 @@ public class ImportItem extends AppCompatActivity {
                         addProductInputRow(product);
                     }
                 }
-                showSubmitButton(selectedVendor);
+                showSubmitButton(type, selectedVendor);
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
@@ -175,7 +177,7 @@ public class ImportItem extends AppCompatActivity {
         }
     }
 
-    private void showSubmitButton(String selectedVendor) {
+    private void showSubmitButton(String type, String selectedVendor) {
         FrameLayout btnContainer = findViewById(R.id.btn_container);
 
         // 如果 btnSubmit 已經有 parent，必須先從之前的 parent 移除
@@ -232,11 +234,9 @@ public class ImportItem extends AppCompatActivity {
                                 summary.add(product + " - " + amountWithUnit);
 
                                 // ✅ 寫入資料庫
-                                ConnectDB.addImportRecord(importDate, vendorName, product, amountWithUnit, success -> {
+                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, success -> {
                                     if (success) {
                                         runOnUiThread(() -> Toast.makeText(this, "已新增：" + product, Toast.LENGTH_SHORT).show());
-                                    } else {
-                                        runOnUiThread(() -> Toast.makeText(this, "新增失敗：" + product, Toast.LENGTH_SHORT).show());
                                     }
                                 });
                             }

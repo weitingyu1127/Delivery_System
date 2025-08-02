@@ -35,6 +35,7 @@ import com.example.deliverysystem.setting_system.SettingMain;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class InspectTable extends BaseActivity {
@@ -60,7 +61,9 @@ public class InspectTable extends BaseActivity {
             DatePickerDialog datePickerDialog = new DatePickerDialog(
                     this,
                     (view, selectedYear, selectedMonth, selectedDay) -> {
-                        String selectedDate = selectedYear + "-" + (selectedMonth + 1) + "-" + selectedDay;
+                        // 補零處理，selectedMonth + 1 是因為從 0 開始
+                        String selectedDate = String.format(Locale.TAIWAN, "%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay);
+
                         textSelectedDate.setText(selectedDate);
                         textSelectedDate.setTextColor(getResources().getColor(R.color.black));
                         textSelectedDate.setTypeface(null, Typeface.NORMAL);
@@ -120,6 +123,7 @@ public class InspectTable extends BaseActivity {
                         record.getPalletComplete(),
                         record.getCoa(),
                         record.getNote(),
+                        record.getPicture(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
                         record.getOdor(),         // ✅ 新增：異味 (Boolean)
@@ -141,6 +145,7 @@ public class InspectTable extends BaseActivity {
                         record.getPalletComplete(),
                         record.getCoa(),
                         record.getNote(),
+                        record.getPicture(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
                         null,
@@ -159,6 +164,7 @@ public class InspectTable extends BaseActivity {
         clearTable();
         ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, records -> {
             DataSource.setInspectRecords(records);
+            Log.d("records:",records.toString());
             runOnUiThread(this::onInspectDataReady);
             TextView textSelectedDate = findViewById(R.id.date_text);
             textSelectedDate.setText("選擇日期");
@@ -261,8 +267,8 @@ public class InspectTable extends BaseActivity {
             }
         }
     }
-    private void addTableRow(int importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
-                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String inspector,
+    private void addTableRow(String importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
+                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String picture, String inspector,
                              String confirmed, String odor, String degree, String type) {
         LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
@@ -320,7 +326,7 @@ public class InspectTable extends BaseActivity {
         View inspectorView;
         if (inspector == null || inspector.trim().isEmpty() || inspector.equalsIgnoreCase("null")) {
             Button inspectorBtn = new Button(this);
-            inspectorBtn.setText("驗收");
+             inspectorBtn.setText("驗收");
             inspectorBtn.setBackgroundResource(R.drawable.btn_blue);
             inspectorBtn.setTextSize(textSize);
             inspectorBtn.setTextColor(ContextCompat.getColor(this, R.color.white));
@@ -390,6 +396,7 @@ public class InspectTable extends BaseActivity {
                                 intent.putExtra("pallet", pallet);
                                 intent.putExtra("COA", COA);
                                 intent.putExtra("note", note);
+                                intent.putExtra("picture", picture);
                                 intent.putExtra("inspector", inspector);
                                 intent.putExtra("confirmed", confirmed);
                                 if ("原料".equals(type)) {
@@ -428,7 +435,6 @@ public class InspectTable extends BaseActivity {
         eyeIcon.setLayoutParams(iconParams);
 
         eyeIcon.setOnClickListener(v -> {
-            Toast.makeText(this, "點擊了眼睛 icon，可實作檢視功能", Toast.LENGTH_SHORT).show();
             Intent intent = new Intent(InspectTable.this, InspectDetail.class);
             intent.putExtra("mode", "view");
             intent.putExtra("type", type);
@@ -445,6 +451,7 @@ public class InspectTable extends BaseActivity {
             intent.putExtra("pallet", pallet);
             intent.putExtra("COA", COA);
             intent.putExtra("note", note);
+            intent.putExtra("picture", picture);
             intent.putExtra("inspector", inspector);
             intent.putExtra("confirmed", confirmed);
             if ("原料".equals(type)) {
@@ -502,192 +509,4 @@ public class InspectTable extends BaseActivity {
                 return value;
         }
     }
-
-//    private void setupSpinnerData(View dialogView, int spinnerId, List<String> data, String selectedData) {
-//        Spinner spinner = dialogView.findViewById(spinnerId);
-//        setupSpinnerAdapter(spinner, data, selectedData);
-//    }
-
-//    private void showInspectDialog(String type, int importId, String date, String itemName, String spec, String packageConfirm, String vector, String packageLabel,
-//              String amount, String validDate, String pallet, String COA, String inspector, String confirmed, String odorCheck, String degreeDisplay, boolean confirm) {
-//
-//        View dialogView = LayoutInflater.from(this).inflate(R.layout.inspect_dialog, null);
-//        setupSpinnerData(dialogView, R.id.inspector, DataSource.getInspector(), inspector);
-//        setupSpinnerData(dialogView, R.id.confirmPerson, DataSource.getConfirmPerson(), confirmed);
-//
-//        // 顯示/隱藏 -> 驗收button
-//        if (confirm){
-//            LinearLayout extraLayout = dialogView.findViewById(R.id.confirmLayout);
-//            extraLayout.setVisibility(View.VISIBLE);
-//        }
-//        LinearLayout odorLayout = dialogView.findViewById(R.id.odorLayout);
-//        LinearLayout degreeLayout = dialogView.findViewById(R.id.degreeLayout);
-//
-//        if (!"原料".equals(type)) {
-//            odorLayout.setVisibility(View.GONE);
-//            degreeLayout.setVisibility(View.GONE);
-//        }
-//
-//        // 更新dialog資訊
-//        EditText editValidDate = dialogView.findViewById(R.id.validDate);
-//        if (validDate != null && !validDate.toLowerCase().contains("null") && !validDate.trim().isEmpty()) {
-//            editValidDate.setText(validDate.trim());
-//        } else {
-//            editValidDate.setText("");
-//        }
-//
-//        editValidDate.setOnClickListener(v -> {
-//            final Calendar calendar = Calendar.getInstance();
-//            int year = calendar.get(Calendar.YEAR);
-//            int month = calendar.get(Calendar.MONTH);
-//            int day = calendar.get(Calendar.DAY_OF_MONTH);
-//
-//            DatePickerDialog datePickerDialog = new DatePickerDialog(
-//                    InspectTable.this,
-//                    (view, selectedYear, selectedMonth, selectedDay) -> {
-//                        final String finalDate = selectedYear + "-" + (selectedMonth + 1) + "-" + selectedDay;
-//                        editValidDate.setText(finalDate);
-//                    },
-//                    year, month, day
-//            );
-//            datePickerDialog.show();
-//        });
-//
-//        TextView textDate = dialogView.findViewById(R.id.textDate);
-//        textDate.setText(date);
-//
-//        TextView textItem = dialogView.findViewById(R.id.item);
-//        textItem.setText(itemName);
-//
-//        TextView textSpec = dialogView.findViewById(R.id.editSpec);
-//        textSpec.setText(spec);
-//
-//        CheckBox packageCheck = dialogView.findViewById(R.id.packageCheck);
-//        packageCheck.setChecked("1".equals(packageConfirm));
-//
-//        CheckBox odorCheckBox = dialogView.findViewById(R.id.odorCheck);
-//        odorCheckBox.setChecked("1".equals(odorCheck));
-//
-//        CheckBox vectorsCheck = dialogView.findViewById(R.id.vectorsCheck);
-//        vectorsCheck.setChecked("1".equals(vector));
-//
-//        TextView textDegreeDisplay = dialogView.findViewById(R.id.editDegree);
-//        textDegreeDisplay.setText(
-//                (degreeDisplay == null || degreeDisplay.toLowerCase().contains("null") || degreeDisplay.trim().isEmpty())
-//                        ? "" : degreeDisplay.trim()
-//        );
-//
-//        CheckBox packageLabelCheck = dialogView.findViewById(R.id.packageLabelCheck);
-//        packageLabelCheck.setChecked("1".equals(packageLabel));
-//
-//        TextView quantity = dialogView.findViewById(R.id.quantity);
-//        quantity.setText(amount);
-//
-//        CheckBox palletCheck = dialogView.findViewById(R.id.palletCheck);
-//        palletCheck.setChecked("1".equals(pallet));
-//
-//        CheckBox coaCheck = dialogView.findViewById(R.id.coaCheck);
-//        coaCheck.setChecked("1".equals(COA));
-//
-//        AlertDialog dialog = new AlertDialog.Builder(this)
-//                .setTitle("驗收資料")
-//                .setView(dialogView)
-//                .setNegativeButton("取消", null)
-//                .setPositiveButton("確定", null)  // 設為 null，我們手動處理
-//                .create();
-//
-//        dialog.show();
-//
-//        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-//            // 取得 checkbox 狀態
-//            boolean isPackageChecked = packageCheck.isChecked();
-//            boolean isOdorChecked = odorCheckBox.isChecked();
-//            boolean isVectorChecked = vectorsCheck.isChecked();
-//            boolean isPackageLabelChecked = packageLabelCheck.isChecked();
-//            boolean isPalletChecked = palletCheck.isChecked();
-//            boolean isCoaChecked = coaCheck.isChecked();
-//
-//            // 取得輸入值
-//            String specText = textSpec.getText().toString().trim();
-//            String degreeText = textDegreeDisplay.getText().toString().trim();
-//            String validDateText = editValidDate.getText().toString().trim();
-//
-//            Spinner inspectorSpinner = dialogView.findViewById(R.id.inspector);
-//            Spinner confirmSpinner = dialogView.findViewById(R.id.confirmPerson);
-//            String inspectorValue = inspectorSpinner.getSelectedItem().toString();
-//            String confirmValue = confirmSpinner.getSelectedItem().toString();
-//
-//            // 資料驗證（錯誤時不關閉 dialog）
-//            if (specText.isEmpty()) {
-//                Toast.makeText(InspectTable.this, "請輸入規格", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//            if (type == "原料" && degreeText.isEmpty()) {
-//                Toast.makeText(InspectTable.this, "請輸入溫度", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//            if (validDateText.isEmpty()) {
-//                Toast.makeText(InspectTable.this, "請選擇有效日期", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//
-//            if ("請選擇".equals(inspectorValue)) {
-//                Toast.makeText(InspectTable.this, "請選擇驗收", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//            if (confirm){
-//                if (confirmValue != null && !"".equals(confirmValue.trim()) && "請選擇".equals(confirmValue)) {
-//                    Toast.makeText(InspectTable.this, "請選擇確認人員", Toast.LENGTH_SHORT).show();
-//                    return;
-//                }
-//            }
-//
-//            // 呼叫資料庫更新
-//            ConnectDB.updateInspectRecord(
-//                    type,
-//                    importId,
-//                    specText,
-//                    validDateText,
-//                    isPackageChecked,
-//                    isOdorChecked,
-//                    isVectorChecked,
-//                    degreeText,
-//                    isPackageLabelChecked,
-//                    isPalletChecked,
-//                    isCoaChecked,
-//                    inspectorValue,
-//                    confirmValue,
-//                    success -> {
-//                        if (success) {
-//                            Toast.makeText(InspectTable.this, "更新成功", Toast.LENGTH_SHORT).show();
-//                            dialog.dismiss();  // ✅ 成功才關閉 dialog
-//                            recreate();        // 或者用你自己的 refresh 方法
-//                        } else {
-//                            Toast.makeText(InspectTable.this, "更新失敗", Toast.LENGTH_SHORT).show();
-//                        }
-//                    }
-//            );
-//        });
-//    }
-//    private void showPasswordDialog(String type, int importId, String date, String itemName, String spec, String packageConfirm, String vector,
-//                                    String packageLabel, String amount, String validDate, String pallet, String COA, String inspector, String confirmed, String odorCheck, String degreeDisplay) {
-//        LayoutInflater inflater = LayoutInflater.from(this);
-//        View dialogView = inflater.inflate(R.layout.dialog_password, null);
-//        EditText editPassword = dialogView.findViewById(R.id.editPassword);
-//
-//        new AlertDialog.Builder(this)
-//                .setTitle("密碼驗證")
-//                .setView(dialogView)
-//                .setPositiveButton("確定", (dialog, which) -> {
-//                    String password = editPassword.getText().toString().trim();
-//                    if ((DataSource.getPasswords().contains(password))) {
-//                        showInspectDialog(type, importId, date, itemName, spec, packageConfirm, vector, packageLabel,
-//                                amount, validDate, pallet, COA, inspector, confirmed, odorCheck, degreeDisplay, true);
-//                    } else {
-//                        Toast.makeText(this, "密碼錯誤", Toast.LENGTH_SHORT).show();
-//                    }
-//                })
-//                .setNegativeButton("取消", null)
-//                .show();
-//    }
 }

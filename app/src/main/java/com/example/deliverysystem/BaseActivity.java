@@ -3,6 +3,7 @@ import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
@@ -24,12 +25,14 @@ import com.example.deliverysystem.inspect_system.InspectMain;
 import com.example.deliverysystem.inspect_system.InspectTable;
 import com.example.deliverysystem.setting_system.SettingMain;
 import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class BaseActivity extends AppCompatActivity {
 
     protected DrawerLayout drawerLayout;
     private ActionBarDrawerToggle drawerToggle;
-
+    FirebaseFirestore db;
     @SuppressLint("NonConstantResourceId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,6 +91,20 @@ public class BaseActivity extends AppCompatActivity {
             return true;
         });
 
+        // test connect Firebase DB
+//        db = FirebaseFirestore.getInstance();
+//
+//        // 測試讀取 employees
+//        db.collection("employees")
+//                .get()
+//                .addOnSuccessListener(queryDocumentSnapshots -> {
+//                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+//                        Log.d("Firestore", "員工名稱：" + doc.getString("employee_name"));
+//                    }
+//                })
+//                .addOnFailureListener(e -> {
+//                    Log.e("Firestore", "讀取失敗", e);
+//                });
     }
 
     @Override

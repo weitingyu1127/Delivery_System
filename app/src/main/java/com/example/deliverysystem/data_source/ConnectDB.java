@@ -2,9 +2,11 @@ package com.example.deliverysystem.data_source;
 
 import android.app.Activity;
 import android.content.Context;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -15,18 +17,31 @@ import com.android.volley.toolbox.Volley;
 import com.example.deliverysystem.call_back.UpdateEmployeeCallback;
 import com.example.deliverysystem.import_system.ImportRecord;
 import com.example.deliverysystem.inspect_system.InspectRecord;
+import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.SetOptions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -34,665 +49,655 @@ public class ConnectDB {
 
     private static final String BASE_URL = "http://192.168.0.149/mei_hua_siang/";
 
-    // === 公用工具：取得 JSON Array ===
-    private static void fetchJsonArrayFromUrl(String urlStr, Consumer<JSONArray> callback) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(5000);
-
-                InputStream is = conn.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.append(line);
-                }
-                reader.close();
-
-                JSONArray jsonArray = new JSONArray(result.toString());
-
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(jsonArray));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
-    // === 公用工具：取得 JSON Object ===
-    private static void fetchJsonObjectFromUrl(String urlStr, Consumer<JSONObject> callback) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(5000);
-
-                InputStream is = conn.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.append(line);
-                }
-                reader.close();
-
-                JSONObject jsonObject = new JSONObject(result.toString());
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(jsonObject));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
     // === 員工資料：inspector / confirmPerson ===
     public static void getEmployees(String type, Runnable callback) {
-        String url = BASE_URL + "getEmployees.php?type=" + type;
-        fetchJsonArrayFromUrl(url, jsonArray -> {
-            List<String> nameList = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                try {
-                    JSONObject obj = jsonArray.getJSONObject(i);
-                    if (obj.has("employee_name")) {
-                        nameList.add(obj.getString("employee_name"));
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 根據 type 設定查詢條件
+        boolean isConfirm = "confirmPerson".equals(type);
+
+        db.collection("employees")
+                .whereEqualTo("employee_authority", isConfirm)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<String> nameList = new ArrayList<>();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        String name = doc.getString("employee_name");
+                        if (name != null) {
+                            nameList.add(name);
+                        }
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
 
-            if ("inspector".equals(type)) {
-                DataSource.setInspectors(nameList);
-            } else if ("confirmPerson".equals(type)) {
-                DataSource.setConfirmPersons(nameList);
-            }
+                    if (!isConfirm) {
+                        DataSource.setInspectors(nameList);
+                        Log.d("inspector", nameList.toString());
+                    } else {
+                        DataSource.setConfirmPersons(nameList);
+                        Log.d("confirmPerson", nameList.toString());
+                    }
 
-            if (callback != null) callback.run();
-        });
+                    if (callback != null) callback.run();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
+                    if (callback != null) callback.run();
+                });
     }
 
     // === 廠商與產品對應資料 ===
     public static void getVendorProductData(Consumer<Map<String, VendorInfo>> callback) {
-        String url = BASE_URL + "getVendorProductMap.php";
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, VendorInfo> vendorMap = new LinkedHashMap<>();
 
-        fetchJsonObjectFromUrl(url, jsonObject -> {
-            Map<String, VendorInfo> vendorMap = new LinkedHashMap<>();
+        db.collection("vendors")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        try {
+                            String vendor = doc.getId(); // Document ID 當作 vendor 名
+                            String industry = doc.getString("industry");
+                            String type = doc.getString("type");
 
-            Iterator<String> keys = jsonObject.keys();
-            while (keys.hasNext()) {
-                String vendor = keys.next();
-                try {
-                    JSONObject vendorObj = jsonObject.getJSONObject(vendor);
+                            List<String> productList = (List<String>) doc.get("products");
+                            if (productList == null) productList = new ArrayList<>();
 
-                    String industry = vendorObj.getString("industry");
-                    String type = vendorObj.getString("type");
-
-                    JSONArray productsArray = vendorObj.getJSONArray("products");
-                    List<String> productList = new ArrayList<>();
-                    for (int i = 0; i < productsArray.length(); i++) {
-                        productList.add(productsArray.getString(i));
+                            VendorInfo info = new VendorInfo(industry, type, productList);
+                            vendorMap.put(vendor, info);
+                            Log.d("VendorData", "Vendor: " + vendor + ", Industry: " + industry +
+                                    ", Type: " + type + ", Products: " + productList);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
-                    VendorInfo info = new VendorInfo(industry, type, productList);
-
-                    vendorMap.put(vendor, info);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            callback.accept(vendorMap);
-        });
+                    callback.accept(vendorMap);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "讀取 vendors 失敗：" + e.getMessage(), e);
+                    callback.accept(vendorMap); // 回傳空資料避免卡住
+                });
     }
 
     public static void getPasswords(Consumer<List<String>> callback) {
-        String url = BASE_URL + "getPassword.php";
-        fetchJsonArrayFromUrl(url, jsonArray -> {
-            List<String> passwordList = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                try {
-                    passwordList.add(jsonArray.getString(i));
-                } catch (Exception e) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("authority_password")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<String> passwordList = new ArrayList<>();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        String password = doc.getString("password");
+                        if (password != null) {
+                            passwordList.add(password);
+                        }
+                        Log.d("password", password);
+                    }
+                    callback.accept(passwordList);
+                })
+                .addOnFailureListener(e -> {
                     e.printStackTrace();
-                }
-            }
-            callback.accept(passwordList);
-        });
+                    callback.accept(new ArrayList<>()); // 出錯時回傳空陣列避免卡住流程
+                });
     }
 
     // === 匯入資料紀錄 ===
     public static void getInspectRecords(String type, Consumer<List<InspectRecord>> callback) {
-        String url = BASE_URL + "getInspectRecords.php?type=" + Uri.encode(type);
-        fetchJsonArrayFromUrl(url, jsonArray -> {
-            List<InspectRecord> records = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                try {
-                    JSONObject obj = jsonArray.getJSONObject(i);
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        List<InspectRecord> records = new ArrayList<>();
 
-                    // 取基本欄位
-                    int importId = obj.getInt("import_id");
-                    String importDate = obj.getString("import_date");
-                    String vendor = obj.getString("vendor");
-                    String product = obj.getString("product");
-                    String spec = obj.getString("spec");
-                    String packageComplete = obj.getString("package_complete");
-                    String vectorComplete = obj.getString("vector_complete");
-                    String packageLabel = obj.getString("package_label");
-                    String quantity = obj.getString("quantity");
-                    String validDate = obj.getString("validDate");
-                    String palletComplete = obj.getString("pallet_complete");
-                    String coa = obj.getString("coa");
-                    String note = obj.getString("note");
-                    String inspectorStaff = obj.optString("inspector_staff", "");
-                    String confirmStaff = obj.optString("confirm_staff", "");
+        db.collection("import_records")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        try {
+                            String importId = doc.getString("import_id");
+                            String importDate = doc.getString("import_date");
+                            String vendor = doc.getString("vendor");
+                            String product = doc.getString("product");
+                            String spec = doc.getString("spec");
+                            String packageComplete = doc.getString("package_complete");
+                            String vectorComplete = doc.getString("vector_complete");
+                            String packageLabel = doc.getString("package_label");
+                            String quantity = doc.getString("quantity");
+                            String validDate = doc.getString("validDate");
+                            String palletComplete = doc.getString("pallet_complete");
+                            String coa = doc.getString("coa");
+                            String note = doc.getString("note");
+                            String picture = doc.getString("image_name");
+                            String inspectorStaff = doc.getString("inspector_staff");
+                            String confirmStaff = doc.getString("confirm_staff");
 
-                    if ("原料".equals(type)) {
-                        String odor = obj.getString("odor");
-                        String degree = obj.getString("degree");
+                            InspectRecord record;
+                            if ("原料".equals(type)) {
+                                String odor = doc.getString("odor");
+                                String degree = doc.getString("degree");
+                                record = new InspectRecord(importId, importDate, vendor, product, spec,
+                                        packageComplete, vectorComplete, packageLabel,
+                                        quantity, validDate, palletComplete, coa, note, picture,
+                                        inspectorStaff, confirmStaff, odor, degree);
+                            } else {
+                                record = new InspectRecord(importId, importDate, vendor, product, spec,
+                                        packageComplete, vectorComplete, packageLabel,
+                                        quantity, validDate, palletComplete, coa, note, picture,
+                                        inspectorStaff, confirmStaff, "", "");
+                            }
 
-                        InspectRecord record = new InspectRecord(
-                                importId, importDate, vendor, product, spec,
-                                packageComplete, vectorComplete, packageLabel,
-                                quantity, validDate, palletComplete, coa, note,
-                                inspectorStaff, confirmStaff, odor, degree
-                        );
-                        records.add(record);
-                    } else {
-                        // 非原料
-                        InspectRecord record = new InspectRecord(
-                                importId, importDate, vendor, product, spec,
-                                packageComplete, vectorComplete, packageLabel,
-                                quantity, validDate, palletComplete, coa, note,
-                                inspectorStaff, confirmStaff, "", ""
-                        );
-                        records.add(record);
+                            records.add(record);
+                            Log.d("InspectRecord", record.toString());
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
-                } catch (Exception e) {
+                    callback.accept(records);
+                })
+                .addOnFailureListener(e -> {
                     e.printStackTrace();
-                }
-            }
-            callback.accept(records);
-        });
+                    callback.accept(new ArrayList<>());
+                });
+    }
+
+
+    // 時間格式轉換 yyyy-MM-dd
+    private static String formatDate(Timestamp ts) {
+        if (ts == null) return "";
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(ts.toDate());
     }
 
     public static void getImportRecords(String vendorName, Consumer<List<ImportRecord>> callback) {
-        String url = BASE_URL + "getImportRecords.php?vendor=" + Uri.encode(vendorName);
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        List<ImportRecord> records = new ArrayList<>();
 
-        fetchJsonArrayFromUrl(url, jsonArray -> {
-            List<ImportRecord> records = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                try {
-                    JSONObject obj = jsonArray.getJSONObject(i);
-                    ImportRecord record = new ImportRecord(
-                            obj.getInt("import_id"),
-                            obj.getString("import_date"),
-                            obj.getString("vendor"),
-                            obj.getString("product"),
-                            obj.getString("quantity")
-                    );
-                    records.add(record);
-                } catch (Exception e) {
+        db.collection("import_records")
+                .whereEqualTo("vendor", vendorName)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        try {
+                            ImportRecord record = new ImportRecord(
+                                    doc.getId(),
+                                    doc.getString("import_date"),
+                                    doc.getString("vendor"),
+                                    doc.getString("product"),
+                                    doc.getString("quantity")
+                            );
+                            records.add(record);
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    callback.accept(records);
+                })
+                .addOnFailureListener(e -> {
                     e.printStackTrace();
-                }
-            }
-            callback.accept(records);
-        });
+                    callback.accept(new ArrayList<>()); // 回傳空列表表示錯誤
+                });
     }
+
     public static void deleteImportRecordById(String importId, Consumer<Boolean> callback) {
-        new Thread(() -> {
-            try {
-                String urlStr = BASE_URL + "deleteImportRecord.php?import_id=" + URLEncoder.encode(importId, "UTF-8");
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(5000);
-
-                int responseCode = conn.getResponseCode();
-                boolean isSuccess = (responseCode == 200); // 200 表示成功
-
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(isSuccess));
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
-            }
-        }).start();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Log.d("import_id",importId);
+        db.collection("import_records").document(importId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+                });
     }
+
     public static void deleteProduct(String vendorName, String productName, Consumer<Boolean> callback) {
-        new Thread(() -> {
-            try {
-                String urlStr = BASE_URL + "deleteProduct.php"
-                        + "?vendor=" + URLEncoder.encode(vendorName, "UTF-8")
-                        + "&product=" + URLEncoder.encode(productName, "UTF-8");
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference docRef = db.collection("vendors").document(vendorName);
 
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-
-                int responseCode = conn.getResponseCode();
-                boolean success = (responseCode == 200);
-
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(success));
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
-            }
-        }).start();
+        docRef.update("products", FieldValue.arrayRemove(productName))
+                .addOnSuccessListener(aVoid -> {
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+                });
     }
 
-    public static void addImportRecord(String date, String vendor, String product, String quantity, Consumer<Boolean> callback) {
-        new Thread(() -> {
-            boolean success = false;
-            try {
-                String urlStr = BASE_URL + "addImportRecord.php"
-                        + "?import_date=" + URLEncoder.encode(date, "UTF-8")
-                        + "&vendor=" + URLEncoder.encode(vendor, "UTF-8")
-                        + "&product=" + URLEncoder.encode(product, "UTF-8")
-                        + "&quantity=" + URLEncoder.encode(quantity, "UTF-8");
+    public static void addImportRecord(String type, String date, String vendor, String product, String quantity, Consumer<Boolean> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
+        // 自動產生 import_id（document ID）
+        String importId = db.collection("import_records").document().getId();
 
-                InputStream is = conn.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                String result = reader.readLine();
+        // 建立寫入的資料
+        Map<String, Object> importData = new HashMap<>();
+        importData.put("import_id", importId);
+        importData.put("type", type);
+        importData.put("import_date", date);
+        importData.put("vendor", vendor);
+        importData.put("product", product);
+        importData.put("quantity", quantity);
 
-                success = "success".equals(result);
-
-                reader.close();
-                is.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            boolean finalSuccess = success;
-            new Handler(Looper.getMainLooper()).post(() -> callback.accept(finalSuccess));
-        }).start();
+        db.collection("import_records").document(importId)
+                .set(importData)
+                .addOnSuccessListener(unused -> new Handler(Looper.getMainLooper()).post(() -> callback.accept(true)))
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+                });
     }
-    public static void updateInspectRecord(String type, int id, String spec, String validDate,
-                                               boolean packageComplete, boolean odorCheck, boolean vector, String degree,
-                                               boolean packageLabel, boolean pallet,
-                                               boolean coa, String note, String inspector, String confirmer,
-                                               Consumer<Boolean> callback) {
-        new Thread(() -> {
-            try {
-                StringBuilder urlBuilder = new StringBuilder(BASE_URL + "updateInspectRecord.php");
-                urlBuilder.append("?import_id=").append(id);
-                urlBuilder.append("&type=").append(type);
-                urlBuilder.append("&spec=").append(URLEncoder.encode(spec, "UTF-8"));
-                urlBuilder.append("&validDate=").append(URLEncoder.encode(validDate, "UTF-8"));
-                urlBuilder.append("&package_complete=").append(packageComplete ? "1" : "0");
-                urlBuilder.append("&odorCheck=").append(odorCheck ? "1" : "0");
-                urlBuilder.append("&vector=").append(vector ? "1" : "0");
-                urlBuilder.append("&degree=").append(URLEncoder.encode(degree, "UTF-8"));
-                urlBuilder.append("&package_label=").append(packageLabel ? "1" : "0");
-                urlBuilder.append("&pallet_complete=").append(pallet ? "1" : "0");
-                urlBuilder.append("&coa=").append(coa ? "1" : "0");
-                urlBuilder.append("&note=").append(URLEncoder.encode(note, "UTF-8"));
-                urlBuilder.append("&inspector_staff=").append(URLEncoder.encode(inspector, "UTF-8"));
 
-                if (confirmer != null && !confirmer.trim().isEmpty() && !"確認人員".equals(confirmer)) {
-                    urlBuilder.append("&confirm_staff=").append(URLEncoder.encode(confirmer, "UTF-8"));
-                }
+    public static void updateInspectRecord(String type, String importId, String spec, String validDate,
+                                           boolean packageComplete, boolean odorCheck, boolean vector, String degree,
+                                           boolean packageLabel, boolean pallet, boolean coa,
+                                           String note, String imageFileName, String inspector, String confirmer,
+                                           Consumer<Boolean> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-                String urlStr = urlBuilder.toString();
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
+        // 要更新的欄位內容
+        Map<String, Object> updateData = new HashMap<>();
+        updateData.put("spec", spec);
+        updateData.put("validDate", validDate);
+        updateData.put("package_complete", packageComplete ? "1" : "0");
+        updateData.put("odor", odorCheck ? "1" : "0");
+        updateData.put("vector_complete", vector ? "1" : "0");
+        updateData.put("degree", degree);
+        updateData.put("package_label", packageLabel ? "1" : "0");
+        updateData.put("pallet_complete", pallet ? "1" : "0");
+        updateData.put("coa", coa ? "1" : "0");
+        updateData.put("note", note);
+        updateData.put("image_name", imageFileName);
+        updateData.put("inspector_staff", inspector);
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                String result = reader.readLine();
-                reader.close();
+        if (confirmer != null && !confirmer.trim().isEmpty() && !"確認人員".equals(confirmer)) {
+            updateData.put("confirm_staff", confirmer);
+        }
 
-                boolean success = "success".equalsIgnoreCase(result);
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(success));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
-            }
-        }).start();
+        // 根據 import_id 查找 document 並更新
+        db.collection("import_records")
+                .whereEqualTo("import_id", importId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        // 假設 import_id 是唯一的，只更新第一筆找到的文件
+                        DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                        doc.getReference().update(updateData)
+                                .addOnSuccessListener(unused -> callback.accept(true))
+                                .addOnFailureListener(e -> {
+                                    e.printStackTrace();
+                                    callback.accept(false);
+                                });
+                    } else {
+                        // 找不到該筆資料
+                        callback.accept(false);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(false);
+                });
     }
-    public static void getFilteredInspectRecords(String type, String vendor, String product, String inspector, String confimer, String date, Consumer<List<InspectRecord>> callback) {
-        String url = BASE_URL + "getFilteredInspectRecords.php"
-                + "?type=" + Uri.encode(type)
-                + "&vendor=" + Uri.encode(vendor)
-                + "&product=" + Uri.encode(product)
-                + "&inspector=" + Uri.encode(inspector)
-                + "&confirmer=" + Uri.encode(confimer)
-                + "&date=" + Uri.encode(date);
-        fetchJsonArrayFromUrl(url, jsonArray -> {
+
+    public static void getFilteredInspectRecords(
+            String type, String vendor, String product,
+            String inspector, String confirmer, String date,
+            Consumer<List<InspectRecord>> callback) {
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        CollectionReference ref = db.collection("import_records");
+
+        Query query = ref;
+
+        if (!type.isEmpty()) query = query.whereEqualTo("type", type);
+        if (!vendor.isEmpty()) query = query.whereEqualTo("vendor", vendor);
+        if (!product.isEmpty()) query = query.whereEqualTo("product", product);
+        if (!inspector.isEmpty()) query = query.whereEqualTo("inspector_staff", inspector);
+        if (!confirmer.isEmpty()) query = query.whereEqualTo("confirm_staff", confirmer);
+
+        if (!date.isEmpty()) {
+            Log.d("date",date);
+            query = query.whereEqualTo("import_date", date);
+        }
+
+        query.get().addOnSuccessListener(querySnapshot -> {
             List<InspectRecord> records = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
+            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                 try {
-                    JSONObject obj = jsonArray.getJSONObject(i);
-
                     InspectRecord record = new InspectRecord(
-                            obj.getInt("import_id"),
-                            obj.getString("import_date"),
-                            obj.getString("vendor"),
-                            obj.getString("product"),
-                            obj.getString("spec"),
-                            obj.getString("package_complete"),
-                            obj.getString("vector_complete"),
-                            obj.getString("package_label"),
-                            obj.getString("quantity"),
-                            obj.getString("validDate"),
-                            obj.getString("pallet_complete"),
-                            obj.getString("coa"),
-                            obj.getString("note"),
-                            obj.optString("inspector_staff", ""),
-                            obj.optString("confirm_staff", ""),
-                            obj.getString("odor"),
-                            obj.getString("degree")
+                            doc.getString("import_id"),
+                            doc.getString("import_date"),
+                            doc.getString("vendor"),
+                            doc.getString("product"),
+                            doc.getString("spec"),
+                            doc.getString("package_complete"),
+                            doc.getString("vector_complete"),
+                            doc.getString("package_label"),
+                            doc.getString("quantity"),
+                            doc.getString("validDate"),
+                            doc.getString("pallet_complete"),
+                            doc.getString("coa"),
+                            doc.getString("note"),
+                            doc.getString("image_name"),
+                            doc.getString("inspector_staff"),
+                            doc.getString("confirm_staff"),
+                            doc.getString("odor"),
+                            doc.getString("degree")
                     );
                     records.add(record);
+                    Log.d("records111", records.toString());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
             callback.accept(records);
+        }).addOnFailureListener(e -> {
+            e.printStackTrace();
+            callback.accept(new ArrayList<>());
         });
     }
+
     // 發出 HTTP GET 請求到 PHP API，取得指定欄位的 distinct 值
-    public static void getDistinctData(String column, String table, Consumer<String[]> callback) {
-        new Thread(() -> {
-            try {
-                String urlStr = BASE_URL + "getDistinctData.php"
-                        + "?column=" + URLEncoder.encode(column, "UTF-8")
-                        + "&table=" + URLEncoder.encode(table, "UTF-8");
+    public static void getDistinctData(String collectionName, String fieldName, Consumer<String[]> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection(collectionName)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Set<String> uniqueValues = new HashSet<>();
+                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                        String value = doc.getString(fieldName);
+                        if (value != null) {
+                            uniqueValues.add(value);
+                        }
+                    }
 
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
+                    String[] result = uniqueValues.toArray(new String[0]);
+                    Log.d("Firestore_DATA", Arrays.toString(result));
 
-                InputStream in = new BufferedInputStream(conn.getInputStream());
-                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.append(line);
-                }
-
-                JSONArray jsonArray = new JSONArray(result.toString());
-                String[] data = new String[jsonArray.length()];
-                for (int i = 0; i < jsonArray.length(); i++) {
-                    data[i] = jsonArray.getString(i);
-                }
-                Log.d("DB_DATA", Arrays.toString(data));
-                // 回傳到主執行緒
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(data));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(new String[]{}));
-            }
-        }).start();
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(result));
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(new String[]{}));
+                });
     }
 
     public static void addProduct(Context context, String vendor, List<String> products, Consumer<Boolean> callback) {
-        new Thread(() -> {
-            List<String> failedList = new ArrayList<>();
-            boolean hasSuccess = false;
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference docRef = db.collection("vendors").document(vendor);
 
-            for (String product : products) {
-                try {
-                    String urlStr = BASE_URL + "addProduct.php"
-                            + "?vendor=" + URLEncoder.encode(vendor, "UTF-8")
-                            + "&product=" + URLEncoder.encode(product, "UTF-8");
+        docRef.get().addOnSuccessListener(documentSnapshot -> {
+            boolean[] hasSuccess = {false};
 
-                    URL url = new URL(urlStr);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
+            // 保留原有欄位
+            Map<String, Object> updates = new HashMap<>();
+            List<String> existingProducts = new ArrayList<>();
 
-                    int responseCode = conn.getResponseCode();
+            if (documentSnapshot.exists()) {
+                // 已有廠商資料
+                existingProducts = (List<String>) documentSnapshot.get("products");
+                if (existingProducts == null) existingProducts = new ArrayList<>();
 
-                    if (responseCode == 200) {
-                        hasSuccess = true; // 至少有一筆成功
-                    } else if (responseCode != 409) {
-                        // 非重複錯誤，視為失敗
-                        failedList.add(product);
+                for (String product : products) {
+                    if (!existingProducts.contains(product)) {
+                        existingProducts.add(product);
+                        hasSuccess[0] = true;
                     }
-
-                    conn.disconnect();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    failedList.add(product);
                 }
+
+            } else {
+                existingProducts.addAll(products);
+                hasSuccess[0] = true;
             }
+            updates.put("products", existingProducts);
+            docRef.set(updates, SetOptions.merge())
+                    .addOnSuccessListener(aVoid -> {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            if (!hasSuccess[0]) {
+                                Toast.makeText(context, "所有品項皆已存在，未新增任何項目", Toast.LENGTH_SHORT).show();
+                            }
+                            callback.accept(true);
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        e.printStackTrace();
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            Toast.makeText(context, "品項新增失敗", Toast.LENGTH_SHORT).show();
+                            callback.accept(false);
+                        });
+                    });
 
-            boolean finalSuccess = hasSuccess;
-            new Handler(Looper.getMainLooper()).post(() -> {
-                if (!failedList.isEmpty()) {
-                    Toast.makeText(context, "部分品項新增失敗：" + failedList, Toast.LENGTH_LONG).show();
-                }
-                callback.accept(finalSuccess); // 至少有一筆成功才回傳 true
-            });
-        }).start();
-    }
-    public static void addVendorWithProducts(Context context, String name, String type, String industry, List<String> products, final Callback callback) {
-        try {
-            String url = BASE_URL + "addNewSupplier.php";
-            JSONObject jsonBody = new JSONObject();
-            jsonBody.put("vendor_name", name);
-            jsonBody.put("type", type);
-            jsonBody.put("industry", industry);
-            jsonBody.put("products", new JSONArray(products));
-            Log.d("DEBUG_JSON", jsonBody.toString());
-
-            JsonObjectRequest request = new JsonObjectRequest(
-                    Request.Method.POST,
-                    url,
-                    jsonBody,
-                    response -> {
-                        boolean success = response.optBoolean("success", false);
-                        callback.onResult(success);
-                    },
-                    error -> {
-                        error.printStackTrace();
-                        callback.onResult(false);
-                    }
-            );
-
-            RequestQueue queue = Volley.newRequestQueue(context);
-            queue.add(request);
-        } catch (Exception e) {
+        }).addOnFailureListener(e -> {
             e.printStackTrace();
-            callback.onResult(false);
-        }
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(context, "讀取廠商資料失敗", Toast.LENGTH_SHORT).show();
+                callback.accept(false);
+            });
+        });
+    }
+
+
+    public static void addVendorWithProducts(Context context, String name, String type, String industry, List<String> products, final Callback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference vendorRef = db.collection("vendors").document(name);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("type", type);
+        data.put("industry", industry);
+        data.put("products", products);
+
+        vendorRef.set(data)
+                .addOnSuccessListener(unused -> callback.onResult(true))
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.onResult(false);
+                });
     }
 
     public interface Callback {
         void onResult(boolean success);
     }
     public static void deleteVendor(Context context, String vendorName, final Callback callback) {
-        try {
-            String url = BASE_URL + "deleteSupplier.php";
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-            JSONObject jsonBody = new JSONObject();
-            jsonBody.put("vendor_name", vendorName);
-
-            JsonObjectRequest request = new JsonObjectRequest(
-                    Request.Method.POST,
-                    url,
-                    jsonBody,
-                    response -> {
-                        boolean success = response.optBoolean("success", false);
-                        callback.onResult(success);
-                    },
-                    error -> {
-                        error.printStackTrace();
-                        callback.onResult(false);
-                    }
-            );
-
-            RequestQueue queue = Volley.newRequestQueue(context);
-            queue.add(request);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            callback.onResult(false);
-        }
+        // 該 vendor 的 document ID 就是 vendorName（如你的資料結構如此）
+        db.collection("vendors").document(vendorName)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(context, "已刪除廠商：" + vendorName, Toast.LENGTH_SHORT).show();
+                    callback.onResult(true);
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    Toast.makeText(context, "刪除失敗：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    callback.onResult(false);
+                });
     }
+
     public interface UpdatePasswordCallback {
         void onResult(boolean success, String message);
     }
 
     public static void updatePassword(Context context, String newPassword, UpdatePasswordCallback callback) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(BASE_URL + "update_password.php");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setDoInput(true);
-                conn.setConnectTimeout(5000);
-                conn.setReadTimeout(5000);
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        CollectionReference colRef = db.collection("authority_password");
 
-                String postData = "&newPassword=" + URLEncoder.encode(newPassword, "UTF-8");
+        colRef.get().addOnSuccessListener(querySnapshot -> {
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot doc = querySnapshot.getDocuments().get(0); // 取第一筆文件
+                DocumentReference docRef = doc.getReference();
 
-                OutputStream outputStream = conn.getOutputStream();
-                outputStream.write(postData.getBytes());
-                outputStream.flush();
-                outputStream.close();
+                Map<String, Object> updateData = new HashMap<>();
+                updateData.put("password", newPassword);
 
-                int responseCode = conn.getResponseCode();
-                InputStream inputStream = (responseCode == 200) ? conn.getInputStream() : conn.getErrorStream();
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-                StringBuilder responseBuilder = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    responseBuilder.append(line);
-                }
-                reader.close();
-
-                String response = responseBuilder.toString();
-                JSONObject json = new JSONObject(response);
-                boolean success = json.getBoolean("success");
-                String message = json.getString("message");
-
-                ((Activity) context).runOnUiThread(() -> callback.onResult(success, message));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                ((Activity) context).runOnUiThread(() -> callback.onResult(false, "連線錯誤: " + e.getMessage()));
+                docRef.set(updateData, SetOptions.merge())
+                        .addOnSuccessListener(unused -> {
+                            ((Activity) context).runOnUiThread(() -> callback.onResult(true, "密碼更新成功"));
+                        })
+                        .addOnFailureListener(e -> {
+                            e.printStackTrace();
+                            ((Activity) context).runOnUiThread(() -> callback.onResult(false, "密碼更新失敗: " + e.getMessage()));
+                        });
+            } else {
+                callback.onResult(false, "未找到密碼文件");
             }
-        }).start();
+        });
+
+    }
+    public static void updateAuthorityEmployee(String name, boolean isChecked, Context context, UpdateEmployeeCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("employees")
+                .whereEqualTo("employee_name", name)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        ((Activity) context).runOnUiThread(() ->
+                                callback.onResult(false, "找不到員工：" + name, new ArrayList<>(), new ArrayList<>()));
+                        return;
+                    }
+
+                    // 更新符合條件的 document
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        doc.getReference().update("employee_authority", isChecked)
+                                .addOnSuccessListener(unused -> {
+                                    fetchUpdatedLists(db, context, callback);
+                                })
+                                .addOnFailureListener(e -> {
+                                    e.printStackTrace();
+                                    ((Activity) context).runOnUiThread(() ->
+                                            callback.onResult(false, "更新失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    ((Activity) context).runOnUiThread(() ->
+                            callback.onResult(false, "查詢失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                });
     }
 
-    public static void updateAuthorityEmployee(String name, boolean isChecked, Context context, UpdateEmployeeCallback callback) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(BASE_URL + "update_authority_employee.php");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+    // 🔁 更新後重新抓取 confirmList / inspectorList
+    private static void fetchUpdatedLists(FirebaseFirestore db, Context context, UpdateEmployeeCallback callback) {
+        List<String> confirmList = new ArrayList<>();
+        List<String> inspectorList = new ArrayList<>();
 
-                String postData = "name=" + URLEncoder.encode(name, "UTF-8") +
-                        "&status=" + (isChecked ? "1" : "0");
+        db.collection("employees").get()
+                .addOnSuccessListener(allDocs -> {
+                    for (DocumentSnapshot doc : allDocs) {
+                        String empName = doc.getString("employee_name");
+                        Boolean isConfirm = doc.getBoolean("employee_authority");
 
-                OutputStream os = conn.getOutputStream();
-                os.write(postData.getBytes());
-                os.flush();
-                os.close();
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) result.append(line);
-                reader.close();
-
-                JSONObject json = new JSONObject(result.toString());
-                boolean success = json.getBoolean("success");
-                String message = json.getString("message");
-
-                List<String> confirmList = new ArrayList<>();
-                List<String> inspectorList = new ArrayList<>();
-
-                JSONArray confirmArray = json.optJSONArray("confirmList");
-                if (confirmArray != null) {
-                    for (int i = 0; i < confirmArray.length(); i++) {
-                        confirmList.add(confirmArray.getString(i));
+                        if (empName != null && isConfirm != null) {
+                            if (isConfirm) {
+                                confirmList.add(empName);
+                            } else {
+                                inspectorList.add(empName);
+                            }
+                        }
                     }
-                }
 
-                JSONArray inspectorArray = json.optJSONArray("inspectorList");
-                if (inspectorArray != null) {
-                    for (int i = 0; i < inspectorArray.length(); i++) {
-                        inspectorList.add(inspectorArray.getString(i));
-                    }
-                }
-
-                ((Activity) context).runOnUiThread(() ->
-                        callback.onResult(success, message, confirmList, inspectorList));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                ((Activity) context).runOnUiThread(() ->
-                        callback.onResult(false, "錯誤：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
-            }
-        }).start();
+                    ((Activity) context).runOnUiThread(() ->
+                            callback.onResult(true, "更新成功", confirmList, inspectorList));
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    ((Activity) context).runOnUiThread(() ->
+                            callback.onResult(false, "取得名單失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                });
     }
 
     public static void addEmployee(String name, Context context, EmployeeUpdateCallback callback) {
-        new Thread(() -> {
-            try {
-                URL url = new URL(BASE_URL + "add_employee.php");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        CollectionReference employeeRef = db.collection("employees");
 
-                String postData = "name=" + URLEncoder.encode(name, "UTF-8");
+        // 建立要新增的資料
+        Map<String, Object> data = new HashMap<>();
+        data.put("employee_name", name);
+        data.put("employee_authority", false);
+        // 新增文件（自動產生 ID）
+        employeeRef.add(data)
+                .addOnSuccessListener(documentReference -> {
+                    // 成功新增員工後，讀取 confirm 與 inspector 清單
+                    fetchEmployeeLists(db, callback, true, "新增成功");
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
+                });
+    }
+    private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
+        CollectionReference employeeRef = db.collection("employees");
 
-                OutputStream os = conn.getOutputStream();
-                os.write(postData.getBytes());
-                os.flush();
-                os.close();
+        employeeRef.get().addOnSuccessListener(querySnapshot -> {
+            List<String> confirmList = new ArrayList<>();
+            List<String> inspectorList = new ArrayList<>();
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) result.append(line);
-                reader.close();
+            for (QueryDocumentSnapshot doc : querySnapshot) {
+                String empName = doc.getString("employee_name");
+                Boolean empAuthority = doc.getBoolean("employee_authority");
 
-                JSONObject json = new JSONObject(result.toString());
-                boolean success = json.getBoolean("success");
-                String message = json.getString("message");
-
-                List<String> confirmList = new ArrayList<>();
-                List<String> inspectorList = new ArrayList<>();
-
-                if (success) {
-                    JSONArray confirmArray = json.getJSONArray("confirmList");
-                    JSONArray inspectorArray = json.getJSONArray("inspectorList");
-
-                    for (int i = 0; i < confirmArray.length(); i++) {
-                        confirmList.add(confirmArray.getString(i));
-                    }
-                    for (int i = 0; i < inspectorArray.length(); i++) {
-                        inspectorList.add(inspectorArray.getString(i));
+                if (empName != null && empAuthority != null) {
+                    if (empAuthority) {
+                        confirmList.add(empName);  // true → 確認人員
+                    } else {
+                        inspectorList.add(empName);  // false → 驗收人員
                     }
                 }
-
-                ((Activity) context).runOnUiThread(() ->
-                        callback.onResult(success, message, confirmList, inspectorList));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                ((Activity) context).runOnUiThread(() ->
-                        callback.onResult(false, "錯誤：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
             }
-        }).start();
+
+            callback.onResult(success, message, confirmList, inspectorList);
+        }).addOnFailureListener(e -> {
+            e.printStackTrace();
+            callback.onResult(false, "讀取清單失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
+        });
     }
+
 
     public interface EmployeeUpdateCallback {
         void onResult(boolean success, String message, List<String> confirmList, List<String> inspectorList);
+    }
+
+    public static void uploadImageFile(Context context, Uri imageUri, String filename, Consumer<Boolean> callback) {
+        new Thread(() -> {
+            try {
+                // 開啟連線
+                URL url = new URL(BASE_URL + "upload_image.php");
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=*****");
+
+                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+
+                // 開始 multipart 區塊
+                outputStream.writeBytes("--*****\r\n");
+                outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");
+                outputStream.writeBytes("Content-Type: image/jpeg\r\n\r\n");
+
+                // 讀取圖片內容（使用 InputStream）
+                InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+
+                // 結束 multipart
+                outputStream.writeBytes("\r\n--*****--\r\n");
+                inputStream.close();
+                outputStream.flush();
+                outputStream.close();
+
+                // 讀取伺服器回應
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String result = reader.readLine();
+                reader.close();
+
+                boolean success = "success".equalsIgnoreCase(result.trim());
+                new Handler(Looper.getMainLooper()).post(() -> callback.accept(success));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+            }
+        }).start();
     }
 }
