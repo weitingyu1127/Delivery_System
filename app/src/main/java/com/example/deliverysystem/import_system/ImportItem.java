@@ -38,65 +38,39 @@ import java.util.*;
 
 public class ImportItem extends AppCompatActivity {
 
-    private Spinner vendorSpinner;
     private FlexboxLayout selectedItemInputContainer;
     private Button btnSubmit;
     private Map<String, VendorInfo> vendorProductMap;
-
+    private String vendorName;
+    private String vendorType;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.import_item);
 
-        vendorSpinner = findViewById(R.id.vendor_spinner);
+        vendorName = getIntent().getStringExtra("vendor_name");
+
+        TextView title = findViewById(R.id.import_vendor_title);
+        title.setText(vendorName);
+
+        List<String> products = DataSource.getProductsByVendor(vendorName);
+        vendorType = DataSource.getTypeByVendor(vendorName);
 
         selectedItemInputContainer = findViewById(R.id.selectedItemInputContainer);
 
         vendorProductMap = DataSource.getVendorProductMap();
-        setupVendorSpinner();
 
+        if (products.isEmpty()) {
+            findViewById(R.id.no_data_text).setVisibility(View.VISIBLE);
+        } else {
+            for (String product : products) {
+                addProductInputRow(product);
+            }
+            showSubmitButton(vendorType, vendorName);
+        }
         ImageView backIcon = findViewById(R.id.back_icon);
         backIcon.setOnClickListener(v -> {
             finish();
-        });
-    }
-
-    private void setupVendorSpinner() {
-        List<String> vendorList = new ArrayList<>();
-        vendorList.add("請選擇廠商");
-        vendorList.addAll(vendorProductMap.keySet());
-
-        ArrayAdapter<String> vendorAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, vendorList);
-        vendorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        vendorSpinner.setAdapter(vendorAdapter);
-
-        vendorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                String selectedVendor = vendorList.get(pos);
-                if (pos == 0) {
-                    selectedItemInputContainer.removeAllViews();
-                    btnSubmit = null;
-                    return;
-                }
-
-                selectedItemInputContainer.removeAllViews();
-                btnSubmit = null;
-
-                List<String> products = DataSource.getProductsByVendor(selectedVendor);
-                String type = DataSource.getTypeByVendor(selectedVendor);
-
-                TextView noDataText = findViewById(R.id.no_data_text);
-                if (products.isEmpty()) {
-                    noDataText.setVisibility(View.VISIBLE);
-                } else {
-                    noDataText.setVisibility(View.GONE);
-                    for (String product : products) {
-                        addProductInputRow(product);
-                    }
-                }
-                showSubmitButton(type, selectedVendor);
-            }
-            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
     }
 
@@ -199,7 +173,7 @@ public class ImportItem extends AppCompatActivity {
             btnSubmit.setBackground(drawable);
 
             // 按鈕尺寸與對齊方式（靠右）
-            FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(267, 70);
+            FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(267, 80);
             btnParams.gravity = Gravity.END; // 靠右
             btnParams.topMargin = 50;
             btnSubmit.setLayoutParams(btnParams);
@@ -212,7 +186,6 @@ public class ImportItem extends AppCompatActivity {
                 String importDate = LocalDate.now().toString();
 
                 // 🛒 抓取供應商名稱
-                String vendorName = vendorSpinner.getSelectedItem().toString();
 
                 for (int i = 0; i < selectedItemInputContainer.getChildCount(); i++) {
                     View view = selectedItemInputContainer.getChildAt(i);

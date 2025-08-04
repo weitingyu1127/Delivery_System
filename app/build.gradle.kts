@@ -81,4 +81,7 @@ dependencies {
 // ✅ 加上 Firestore 和其他 Firebase 套件（不用版本號）
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-inappmessaging")
+
+    implementation ("com.google.firebase:firebase-storage:20.3.0")
+
 }

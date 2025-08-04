@@ -83,12 +83,6 @@ public class ImportMain extends BaseActivity {
         // 預設顯示 All
         renderVendors("All");
         updateCategoryColors(categoryRow);
-
-        FloatingActionButton fabAdd = findViewById(R.id.fabAdd);
-        fabAdd.setOnClickListener(v -> {
-            Intent intent = new Intent(ImportMain.this, ImportItem.class);
-            startActivity(intent);
-        });
     }
 
     private void addCategoryButton(LinearLayout categoryRow, String label) {
@@ -100,7 +94,7 @@ public class ImportMain extends BaseActivity {
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 (int) getResources().getDisplayMetrics().density * 108,
-                (int) getResources().getDisplayMetrics().density * 42
+                (int) getResources().getDisplayMetrics().density * 60
         );
         params.setMargins(8, 8, 8, 8);
         btn.setLayoutParams(params);

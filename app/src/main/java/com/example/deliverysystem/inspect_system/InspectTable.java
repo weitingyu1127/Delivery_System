@@ -288,14 +288,13 @@ public class InspectTable extends BaseActivity {
         TextView tableVendor = createCell("vendor", vendor, 120, textSize, padding);
         TextView tableItem = createCell("item", itemName, 100, textSize, padding);
         TextView tableSpec = createCell("spec", spec, 100, textSize, padding);
-
-        TextView tablePackage = createCell("package", toCheckSymbol(packageConfirm), 80, textSize, padding);
-        TextView tableVector = createCell("vector", toCheckSymbol(vector), 80, textSize, padding);
-        TextView tableLabel = createCell("label", toCheckSymbol(packageLabel), 100, textSize, padding);
-        TextView tableAmount = createCell("amount", amount, 100, textSize, padding); // 數值無需轉換
-        TextView tableValidDate = createCell("validDate", toCheckSymbol(validDate), 120, textSize, padding);
-        TextView tablePallet = createCell("pallet", toCheckSymbol(pallet), 80, textSize, padding);
-        TextView tableCoa = createCell("coa", toCheckSymbol(COA), 80, textSize, padding);
+        View tablePackage = createIconOrTextCell("package", packageConfirm, toCheckIconRes(packageConfirm), 80, textSize, padding);
+        View tableVector = createIconOrTextCell("vector", vector, toCheckIconRes(vector), 80, textSize, padding);
+        View tableLabel = createIconOrTextCell("label", packageLabel, toCheckIconRes(packageLabel), 100, textSize, padding);
+        TextView tableAmount = createCell("amount", amount, 100, textSize, padding);
+        View tableValidDate = createIconOrTextCell("validDate", validDate, toCheckIconRes(validDate), 120, textSize, padding);
+        View tablePallet = createIconOrTextCell("pallet", pallet, toCheckIconRes(pallet), 80, textSize, padding);
+        View tableCoa = createIconOrTextCell("coa", COA, toCheckIconRes(COA), 80, textSize, padding);
 
         String noteText = (note == null || note.trim().isEmpty() || note.equalsIgnoreCase("null")) ? "" : note;
         TextView tableNote = createCell("note",noteText, 200, textSize, padding);
@@ -307,7 +306,7 @@ public class InspectTable extends BaseActivity {
         rowLayout.addView(tableSpec);
         rowLayout.addView(tablePackage);
         if("原料".equals(type)){
-            TextView tableOdor = createCell("odor",toCheckSymbol(odor), 80, textSize, padding);
+            View tableOdor = createIconOrTextCell("odor", odor, toCheckIconRes(odor), 80, textSize, padding);
             rowLayout.addView(tableOdor);
         }
         rowLayout.addView(tableVector);
@@ -496,17 +495,37 @@ public class InspectTable extends BaseActivity {
         return textView;
     }
 
-    private String toCheckSymbol(String value) {
-        if (value == null || value.trim().isEmpty()|| value.equalsIgnoreCase("null")) {
-            return "";
+    // 將 "1"/"0" 轉成圖示資源 ID
+    private int toCheckIconRes(String value) {
+        if (value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null")) {
+            return 0;
         }
         switch (value) {
             case "0":
-                return "✘";
+                return R.drawable.ic_cross;
             case "1":
-                return "✔";
+                return R.drawable.ic_check;
             default:
-                return value;
+                return 0;
+        }
+    }
+
+    // 根據圖示是否存在決定用 ImageView 或 TextView 顯示
+    private View createIconOrTextCell(String tag, String value, int iconRes, int widthDp, int textSize, int padding) {
+        int widthPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
+        int heightPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 36, getResources().getDisplayMetrics()); // 固定高度
+
+        if (iconRes != 0) {
+            ImageView icon = new ImageView(this);
+            icon.setImageResource(iconRes);
+            icon.setLayoutParams(new LinearLayout.LayoutParams(widthPx, heightPx));
+            icon.setPadding(padding, padding, padding, padding);
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            icon.setAdjustViewBounds(true);
+            icon.setTag(tag);
+            return icon;
+        } else {
+            return createCell(tag, value, widthDp, textSize, padding);
         }
     }
 }

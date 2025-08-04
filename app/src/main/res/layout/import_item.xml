@@ -69,13 +69,22 @@
                         android:padding="43dp">
 
                         <!-- Spinner -->
-                        <androidx.appcompat.widget.AppCompatSpinner
-                            android:id="@+id/vendor_spinner"
-                            android:layout_width="431dp"
-                            android:layout_height="55dp"
-                            android:layout_marginBottom="12dp"
-                            android:background="@drawable/spinner_pattern"
-                            android:drawableEnd="@drawable/ic_spinner" />
+<!--                        <androidx.appcompat.widget.AppCompatSpinner-->
+<!--                            android:id="@+id/vendor_spinner"-->
+<!--                            android:layout_width="431dp"-->
+<!--                            android:layout_height="55dp"-->
+<!--                            android:layout_marginBottom="12dp"-->
+<!--                            android:background="@drawable/spinner_pattern"-->
+<!--                            android:drawableEnd="@drawable/ic_spinner" />-->
+                        <TextView
+                            android:id="@+id/import_vendor_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="供應商名稱"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:padding="10dp"
+                            />
 
                         <!-- 分隔線 -->
                         <View

@@ -26,6 +26,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -144,6 +146,7 @@ public class ConnectDB {
         List<InspectRecord> records = new ArrayList<>();
 
         db.collection("import_records")
+                .whereEqualTo("type", type) // ✅ 加入過濾條件
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
@@ -655,49 +658,37 @@ public class ConnectDB {
         void onResult(boolean success, String message, List<String> confirmList, List<String> inspectorList);
     }
 
-    public static void uploadImageFile(Context context, Uri imageUri, String filename, Consumer<Boolean> callback) {
-        new Thread(() -> {
-            try {
-                // 開啟連線
-                URL url = new URL(BASE_URL + "upload_image.php");
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("POST");
-                connection.setDoOutput(true);
-                connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=*****");
+    public static void uploadImageToFirebase(Context context, Uri imageUri, String filename, Consumer<String> callback) {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference storageRef = storage.getReference().child("inspect_images/" + filename);
 
-                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+        storageRef.putFile(imageUri)
+                .addOnSuccessListener(taskSnapshot ->
+                        storageRef.getDownloadUrl().addOnSuccessListener(uri -> callback.accept(uri.toString()))
+                )
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(null);
+                });
+    }
+    public static void getTodayImageFilename(Consumer<String> callback) {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+        StorageReference ref = storage.getReference().child("inspect_images/");
 
-                // 開始 multipart 區塊
-                outputStream.writeBytes("--*****\r\n");
-                outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");
-                outputStream.writeBytes("Content-Type: image/jpeg\r\n\r\n");
+        String todayPrefix = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
 
-                // 讀取圖片內容（使用 InputStream）
-                InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
+        ref.listAll().addOnSuccessListener(listResult -> {
+            int count = 0;
+            for (StorageReference item : listResult.getItems()) {
+                if (item.getName().startsWith(todayPrefix)) {
+                    count++;
                 }
-
-                // 結束 multipart
-                outputStream.writeBytes("\r\n--*****--\r\n");
-                inputStream.close();
-                outputStream.flush();
-                outputStream.close();
-
-                // 讀取伺服器回應
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String result = reader.readLine();
-                reader.close();
-
-                boolean success = "success".equalsIgnoreCase(result.trim());
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(success));
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
             }
-        }).start();
+            String filename = todayPrefix + "_" + String.format("%02d", count + 1) + ".jpg";
+            callback.accept(filename);
+        }).addOnFailureListener(e -> {
+            e.printStackTrace();
+            callback.accept(null);
+        });
     }
 }

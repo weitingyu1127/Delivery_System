@@ -40,12 +40,15 @@ public class ImportTable extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.import_page);
+
+        vendorName = getIntent().getStringExtra("vendor_name");
+
         FloatingActionButton fabAdd = findViewById(R.id.fabAdd);
         fabAdd.setOnClickListener(v -> {
             Intent intent = new Intent(ImportTable.this, ImportItem.class);
+            intent.putExtra("vendor_name",vendorName);
             startActivity(intent);
         });
-        vendorName = getIntent().getStringExtra("vendor_name");
 
         searchInput = findViewById(R.id.search_input);
         clearFilterBtn = findViewById(R.id.clear_btn);

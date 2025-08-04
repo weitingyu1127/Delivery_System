@@ -36,16 +36,4 @@
                 app:justifyContent="flex_start" />
         </LinearLayout>
     </ScrollView>
-
-    <!-- 固定右下角的 FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAdd"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:contentDescription="新增資料"
-        android:src="@android:drawable/ic_input_add"
-        app:backgroundTint="@color/dark_blue"
-        app:tint="@android:color/white" />
 </FrameLayout>
