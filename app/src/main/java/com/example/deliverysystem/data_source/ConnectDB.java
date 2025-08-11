@@ -144,49 +144,48 @@ public class ConnectDB {
         List<InspectRecord> records = new ArrayList<>();
 
         db.collection("import_records")
-                .whereEqualTo("type", type) // ✅ 加入過濾條件
+                .whereEqualTo("type", type)
+                .orderBy("import_date", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        try {
-                            String importId = doc.getString("import_id");
-                            String importDate = doc.getString("import_date");
-                            String vendor = doc.getString("vendor");
-                            String product = doc.getString("product");
-                            String spec = doc.getString("spec");
-                            String packageComplete = doc.getString("package_complete");
-                            String vectorComplete = doc.getString("vector_complete");
-                            String packageLabel = doc.getString("package_label");
-                            String quantity = doc.getString("quantity");
-                            String validDate = doc.getString("validDate");
-                            String palletComplete = doc.getString("pallet_complete");
-                            String coa = doc.getString("coa");
-                            String note = doc.getString("note");
-                            String picture = doc.getString("image_name");
-                            String inspectorStaff = doc.getString("inspector_staff");
-                            String confirmStaff = doc.getString("confirm_staff");
+                    for (DocumentSnapshot doc : querySnapshot) {
+                        String importId        = doc.getString("import_id");
+                        String importDate      = doc.getString("import_date");
+                        String vendor          = doc.getString("vendor");
+                        String product         = doc.getString("product");
+                        String spec            = doc.getString("spec");
+                        String packageComplete = doc.getString("package_complete");
+                        String vectorComplete  = doc.getString("vector_complete");
+                        String packageLabel    = doc.getString("package_label");
+                        String quantity        = doc.getString("quantity");
+                        String validDate       = doc.getString("validDate");
+                        String palletComplete  = doc.getString("pallet_complete");
+                        String coa             = doc.getString("coa");
+                        String note            = doc.getString("note");
+                        String picture         = doc.getString("image_name");
+                        String inspectorStaff  = doc.getString("inspector_staff");
+                        String confirmStaff    = doc.getString("confirm_staff");
 
-                            InspectRecord record;
-                            if ("原料".equals(type)) {
-                                String odor = doc.getString("odor");
-                                String degree = doc.getString("degree");
-                                record = new InspectRecord(importId, importDate, vendor, product, spec,
-                                        packageComplete, vectorComplete, packageLabel,
-                                        quantity, validDate, palletComplete, coa, note, picture,
-                                        inspectorStaff, confirmStaff, odor, degree);
-                            } else {
-                                record = new InspectRecord(importId, importDate, vendor, product, spec,
-                                        packageComplete, vectorComplete, packageLabel,
-                                        quantity, validDate, palletComplete, coa, note, picture,
-                                        inspectorStaff, confirmStaff, "", "");
-                            }
-
-                            records.add(record);
-                            Log.d("InspectRecord", record.toString());
-
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                        InspectRecord record;
+                        if ("原料".equals(type)) {
+                            String odor   = doc.getString("odor");
+                            String degree = doc.getString("degree");
+                            record = new InspectRecord(
+                                    importId, importDate, vendor, product, spec,
+                                    packageComplete, vectorComplete, packageLabel,
+                                    quantity, validDate, palletComplete, coa, note, picture,
+                                    inspectorStaff, confirmStaff, odor, degree
+                            );
+                        } else {
+                            record = new InspectRecord(
+                                    importId, importDate, vendor, product, spec,
+                                    packageComplete, vectorComplete, packageLabel,
+                                    quantity, validDate, palletComplete, coa, note, picture,
+                                    inspectorStaff, confirmStaff, "", ""
+                            );
                         }
+
+                        records.add(record);
                     }
                     callback.accept(records);
                 })
@@ -209,6 +208,7 @@ public class ConnectDB {
 
         db.collection("import_records")
                 .whereEqualTo("vendor", vendorName)
+                .orderBy("import_date", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
