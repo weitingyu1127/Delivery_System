@@ -49,8 +49,6 @@ import java.util.function.Consumer;
 
 public class ConnectDB {
 
-    private static final String BASE_URL = "http://192.168.0.149/mei_hua_siang/";
-
     // === 員工資料：inspector / confirmPerson ===
     public static void getEmployees(String type, Runnable callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -356,7 +354,6 @@ public class ConnectDB {
         if (!confirmer.isEmpty()) query = query.whereEqualTo("confirm_staff", confirmer);
 
         if (!date.isEmpty()) {
-            Log.d("date",date);
             query = query.whereEqualTo("import_date", date);
         }
 

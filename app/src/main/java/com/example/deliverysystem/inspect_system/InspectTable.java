@@ -34,9 +34,12 @@ import com.example.deliverysystem.setting_system.SettingMain;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class InspectTable extends BaseActivity {
     private String type;
@@ -44,9 +47,9 @@ public class InspectTable extends BaseActivity {
         super.onCreate(savedInstanceState);
         type = getIntent().getStringExtra("type");
         if ("物料".equals(type)) {
-            setContentView(R.layout.inspect_material_table); // 原料的 layout
+            setContentView(R.layout.inspect_material_table);
         } else if ("原料".equals(type)) {
-            setContentView(R.layout.inspect_ingredient_table);  // 物料的 layout
+            setContentView(R.layout.inspect_ingredient_table);
         }
 
         TextView textSelectedDate = findViewById(R.id.date_text);
@@ -63,7 +66,6 @@ public class InspectTable extends BaseActivity {
                     (view, selectedYear, selectedMonth, selectedDay) -> {
                         // 補零處理，selectedMonth + 1 是因為從 0 開始
                         String selectedDate = String.format(Locale.TAIWAN, "%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay);
-
                         textSelectedDate.setText(selectedDate);
                         textSelectedDate.setTextColor(getResources().getColor(R.color.black));
                         textSelectedDate.setTypeface(null, Typeface.NORMAL);
@@ -78,16 +80,19 @@ public class InspectTable extends BaseActivity {
 
         Button searchBtn = findViewById(R.id.btnSearch);
         searchBtn.setOnClickListener(v -> {
-            String vendor = ((Spinner) findViewById(R.id.spinnerVendor)).getSelectedItem().toString();
-            String product = ((Spinner) findViewById(R.id.spinnerProduct)).getSelectedItem().toString();
-            String inspector = ((Spinner) findViewById(R.id.spinnerInspector)).getSelectedItem().toString();
-            String confirmer = ((Spinner) findViewById(R.id.spinnerConfirmPerson)).getSelectedItem().toString();
-            String date = ((TextView) findViewById(R.id.date_text)).getText().toString();  // yyyy-MM-dd
-            if (vendor.equals("廠商")) vendor = "";
-            if (product.equals("產品")) product = "";
-            if (inspector.equals("驗收人員")) inspector = "";
-            if (confirmer.equals("確認人員")) confirmer = "";
-            if (date.equals("選擇日期")) date = "";
+            Spinner vendorSp   = findViewById(R.id.spinnerVendor);
+            Spinner productSp  = findViewById(R.id.spinnerProduct);
+            Spinner inspectorSp= findViewById(R.id.spinnerInspector);
+            Spinner confirmerSp= findViewById(R.id.spinnerConfirmPerson);
+            TextView dateTv    = findViewById(R.id.date_text);
+
+            String vendor    = vendorSp.getSelectedItemPosition()   == 0 ? "" : vendorSp.getSelectedItem().toString();
+            String product   = productSp.getSelectedItemPosition()  == 0 ? "" : productSp.getSelectedItem().toString();
+            String inspector = inspectorSp.getSelectedItemPosition()== 0 ? "" : inspectorSp.getSelectedItem().toString();
+            String confirmer = confirmerSp.getSelectedItemPosition()== 0 ? "" : confirmerSp.getSelectedItem().toString();
+
+            String date = "選擇進貨日期".contentEquals(dateTv.getText()) ? "" : dateTv.getText().toString();
+
             fetchFilteredRecords(type, vendor, product, inspector, confirmer, date);
         });
         getInspectData();
@@ -164,10 +169,9 @@ public class InspectTable extends BaseActivity {
         clearTable();
         ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, records -> {
             DataSource.setInspectRecords(records);
-            Log.d("records:",records.toString());
             runOnUiThread(this::onInspectDataReady);
             TextView textSelectedDate = findViewById(R.id.date_text);
-            textSelectedDate.setText("選擇日期");
+            textSelectedDate.setText("選擇進貨日期");
             textSelectedDate.setTextColor(Color.parseColor("#000000"));
         });
     }
@@ -177,7 +181,7 @@ public class InspectTable extends BaseActivity {
 
         // ✅ 建立 vendor 清單，僅取指定 type 的 vendor
         List<String> vendorList = new ArrayList<>();
-        vendorList.add("廠商");
+        vendorList.add("選擇廠商");
 
         for (Map.Entry<String, VendorInfo> entry : DataSource.getVendorProductMap().entrySet()) {
             if (type.equals(entry.getValue().getType())) {
@@ -191,48 +195,50 @@ public class InspectTable extends BaseActivity {
         vendorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         vendorSpinner.setAdapter(vendorAdapter);
 
-        // ✅ 預設載入所有該 type 的產品
-        List<String> allProducts = new ArrayList<>();
-        allProducts.add("產品");
-
+        Set<String> allProductsSet = new LinkedHashSet<>();
         for (VendorInfo info : DataSource.getVendorProductMap().values()) {
             if (type.equals(info.getType())) {
-                allProducts.addAll(info.getProducts());
+                allProductsSet.addAll(info.getProducts());
             }
         }
+        List<String> allProducts = new ArrayList<>();
+        allProducts.add("選擇產品");
+        allProducts.addAll(allProductsSet);
 
-        ArrayAdapter<String> productAdapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, allProducts
-        );
+        ArrayAdapter<String> productAdapter =
+                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, allProducts);
         productAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         productSpinner.setAdapter(productAdapter);
 
+
         // ✅ 廠商選擇時更新產品
         vendorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedVendor = vendorSpinner.getSelectedItem().toString();
-                List<String> updatedProducts = new ArrayList<>();
-                updatedProducts.add("產品");
 
-                if ("廠商".equals(selectedVendor)) {
+                Set<String> uniq = new LinkedHashSet<>();
+                if ("選擇廠商".equals(selectedVendor)) {
+                    // 全部同 type 的產品（去重）
                     for (VendorInfo info : DataSource.getVendorProductMap().values()) {
                         if (type.equals(info.getType())) {
-                            updatedProducts.addAll(info.getProducts());
+                            uniq.addAll(info.getProducts());
                         }
                     }
                 } else {
-                    updatedProducts.addAll(DataSource.getProductsByVendor(selectedVendor));
+                    // 單一廠商的產品（也去重保險）
+                    uniq.addAll(DataSource.getProductsByVendor(selectedVendor));
                 }
 
+                List<String> updated = new ArrayList<>();
+                updated.add("選擇產品");
+                updated.addAll(uniq);
+
                 productAdapter.clear();
-                productAdapter.addAll(updatedProducts);
+                productAdapter.addAll(updated);
                 productAdapter.notifyDataSetChanged();
                 productSpinner.setSelection(0);
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
         // 其他 spinner 初始化
@@ -311,8 +317,8 @@ public class InspectTable extends BaseActivity {
         }
         rowLayout.addView(tableVector);
         if("原料".equals(type)){
-            String degreeText = (degree == null || degree.trim().isEmpty() || degree.equalsIgnoreCase("null")) ? "" : degree + "°C";
-            TextView tableDegree = createCell("degree",degreeText, 80, textSize, padding);
+            String degreeText = (degree == null || degree.trim().isEmpty() || degree.equalsIgnoreCase("null")) ? "" : degree;
+            TextView tableDegree = createCell("degree",degreeText, 110, textSize, padding);
             rowLayout.addView(tableDegree);
         }
         rowLayout.addView(tableLabel);
@@ -456,6 +462,7 @@ public class InspectTable extends BaseActivity {
             if ("原料".equals(type)) {
                 intent.putExtra("odor", odor);
                 intent.putExtra("degree", degree);
+                intent.putExtra("view", true);
             }
             intent.putExtra("staff", "confirm");
             startActivity(intent);
