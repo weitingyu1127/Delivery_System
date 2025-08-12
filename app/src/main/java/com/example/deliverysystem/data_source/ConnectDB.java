@@ -2,21 +2,18 @@ package com.example.deliverysystem.data_source;
 
 import android.app.Activity;
 import android.content.Context;
-import android.database.Cursor;
+import android.content.Intent;
+
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
+
 import android.util.Log;
 import android.widget.Toast;
 
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.Volley;
-import com.example.deliverysystem.call_back.UpdateEmployeeCallback;
 import com.example.deliverysystem.import_system.ImportRecord;
 import com.example.deliverysystem.inspect_system.InspectRecord;
+import com.example.deliverysystem.inspect_system.InspectTable;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
@@ -26,24 +23,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.SetOptions;
-import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Consumer;
@@ -296,13 +278,12 @@ public class ConnectDB {
                 });
     }
 
-    public static void addImportRecord(String type, String date, String vendor, String product, String quantity, Consumer<Boolean> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+    public static void addImportRecord(String type, String date, String vendor, String product, String quantity,
+                                       Context context, Consumer<Boolean> callback) {
 
-        // 自動產生 import_id（document ID）
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
         String importId = db.collection("import_records").document().getId();
 
-        // 建立寫入的資料
         Map<String, Object> importData = new HashMap<>();
         importData.put("import_id", importId);
         importData.put("type", type);
@@ -313,7 +294,19 @@ public class ConnectDB {
 
         db.collection("import_records").document(importId)
                 .set(importData)
-                .addOnSuccessListener(unused -> new Handler(Looper.getMainLooper()).post(() -> callback.accept(true)))
+                .addOnSuccessListener(unused -> {
+                    // 導頁到 InspectTable，傳入 type（需要更多欄位就再加 putExtra）
+                    Intent intent = new Intent(context, InspectTable.class);
+                    intent.putExtra("type", type);
+                    // 若 context 不是 Activity，補上 FLAG
+                    if (!(context instanceof Activity)) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    }
+                    context.startActivity(intent);
+
+                    // 通知呼叫端成功（如果你還想保留 callback）
+                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
+                })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
                     new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));

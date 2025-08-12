@@ -211,9 +211,9 @@ public class ImportItem extends AppCompatActivity {
                                 summary.add(product + " - " + amountWithUnit);
 
                                 // ✅ 寫入資料庫
-                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, success -> {
-                                    if (success) {
-                                        runOnUiThread(() -> Toast.makeText(this, "已新增：" + product, Toast.LENGTH_SHORT).show());
+                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, this, success -> {
+                                    if (!success) {
+                                        Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
                                     }
                                 });
                             }
