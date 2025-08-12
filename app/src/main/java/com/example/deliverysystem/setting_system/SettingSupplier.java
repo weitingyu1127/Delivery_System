@@ -30,6 +30,7 @@ import com.example.deliverysystem.data_source.ConnectDB;
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 import com.example.deliverysystem.data_source.VendorInfo;
+import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.FlexWrap;
 import com.google.android.flexbox.FlexboxLayout;
@@ -39,6 +40,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,13 +50,15 @@ public class SettingSupplier extends BaseActivity {
     private Map<String, List<String>> industryMap;
     private String currentFilter = "All";
     private ActivityResultLauncher<Intent> supplierLauncher;
+
+    private FlexboxLayout rowRaw;   // 第一排：All + 原料
+    private FlexboxLayout rowStuff; // 第二排：物料
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.setting_supplier);
 
         FlexboxLayout mainContainer = findViewById(R.id.supplier_container);
-
         Map<String, VendorInfo> vendorMap = DataSource.getVendorProductMap();
 
         industryMap = new LinkedHashMap<>();
@@ -65,24 +69,36 @@ public class SettingSupplier extends BaseActivity {
             industryMap.get(industry).add(vendor);
         }
 
-        for (Map.Entry<String, List<String>> entry : industryMap.entrySet()) {
-            String industry = entry.getKey();
-            List<String> vendors = entry.getValue();
+// 依 type 自動蒐集 industry：原料 / 物料（用 LinkedHashSet 保序又去重）
+        Set<String> rawIndustries = new LinkedHashSet<>();
+        Set<String> stuffIndustries = new LinkedHashSet<>();
+        for (VendorInfo info : vendorMap.values()) {
+            String industry = info.getIndustry();
+            String type = info.getType(); // "原料" or "物料"
+            if ("原料".equals(type)) {
+                rawIndustries.add(industry);
+            } else if ("物料".equals(type)) {
+                stuffIndustries.add(industry);
+            }
         }
 
-        // 建立分類按鈕列
-        LinearLayout categoryRow = new LinearLayout(this);
-        categoryRow.setOrientation(LinearLayout.HORIZONTAL);
-        categoryRow.setLayoutParams(new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        addCategoryButton(categoryRow, "All");
-        for (String industry : industryMap.keySet()) {
-            addCategoryButton(categoryRow, industry);
+        // 在 onCreate 裡
+        // 第 1 排：原料
+        LinearLayout rawRowContainer = makeRowWithLabel("原料:");
+        rowRaw = (FlexboxLayout) rawRowContainer.getChildAt(1); // 第二個子元件是 FlexboxLayout
+        addCategoryButton(rowRaw, "All");
+        for (String industry : rawIndustries) {
+            addCategoryButton(rowRaw, industry);
         }
-        mainContainer.addView(categoryRow);
+        mainContainer.addView(rawRowContainer);
+
+        // 第 2 排：物料
+        LinearLayout stuffRowContainer = makeRowWithLabel("物料:");
+        rowStuff = (FlexboxLayout) stuffRowContainer.getChildAt(1);
+        for (String industry : stuffIndustries) {
+            addCategoryButton(rowStuff, industry);
+        }
+        mainContainer.addView(stuffRowContainer);
 
         // 廠商容器
         vendorContainer = new FlexboxLayout(this);
@@ -97,7 +113,8 @@ public class SettingSupplier extends BaseActivity {
         mainContainer.addView(vendorContainer);
 
         renderVendors("All");
-        updateCategoryColors(categoryRow);
+        updateCategoryColors(rowRaw);
+        updateCategoryColors(rowStuff);
 
         supplierLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -115,6 +132,42 @@ public class SettingSupplier extends BaseActivity {
         });
 
         getSupplierData();
+    }
+    private LinearLayout makeRowWithLabel(String labelText) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.HORIZONTAL);
+        container.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        container.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView label = new TextView(this);
+        label.setText(labelText);
+        label.setTextSize(20);
+        label.setTextColor(Color.BLACK);
+        label.setPadding(0, 0, 16, 0); // 標籤與按鈕間距
+        container.addView(label);
+
+        FlexboxLayout flexRow = makeFlexRow();
+        flexRow.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+        ));
+        container.addView(flexRow);
+
+        return container;
+    }
+    private FlexboxLayout makeFlexRow() {
+        FlexboxLayout row = new FlexboxLayout(this);
+        row.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        row.setFlexWrap(FlexWrap.WRAP);
+        row.setJustifyContent(JustifyContent.FLEX_START);
+        row.setAlignItems(AlignItems.CENTER);
+        row.setPadding(0, 0, 0, 0);
+        return row;
     }
     @Override
     protected void onResume() {
@@ -147,31 +200,33 @@ public class SettingSupplier extends BaseActivity {
         });
 
     }
-    private int dpToPx(int dp) {
-        float density = getResources().getDisplayMetrics().density;
-        return Math.round(dp * density);
-    }
 
-    private void addCategoryButton(LinearLayout categoryRow, String label) {
-        Button btn = new Button(this);
-        btn.setText(label);
-        btn.setTextSize(18);
-        btn.setTextColor(Color.BLACK);
-        btn.setBackgroundResource(R.drawable.btn_category_white);
+private void addCategoryButton(FlexboxLayout targetRow, String label) {
+    Button btn = new Button(this);
+    btn.setText(label);
+    btn.setTextSize(18);
+    btn.setTextColor(Color.BLACK);
+    btn.setBackgroundResource(R.drawable.btn_category_white);
+    // 給左右空間（px）；如要 dp→px 可再換算
+    btn.setPadding(32, 8, 32, 8);
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                dpToPx(108), dpToPx(42));
-        params.setMargins(8, 8, 8, 8);
-        btn.setLayoutParams(params);
+    FlexboxLayout.LayoutParams lp = new FlexboxLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+    );
+    lp.setMargins(8, 12, 8, 12); // 按鈕間距：左右 8、上下 12
+    btn.setLayoutParams(lp);
 
-        btn.setOnClickListener(v -> {
-            currentFilter = label;
-            renderVendors(label);
-            updateCategoryColors(categoryRow);
-        });
+    btn.setOnClickListener(v -> {
+        currentFilter = label;
+        renderVendors(label);
+        // 兩排都更新選中樣式（不改你的 updateCategoryColors 寫法，只是各呼叫一次）
+        updateCategoryColors(rowRaw);
+        updateCategoryColors(rowStuff);
+    });
 
-        categoryRow.addView(btn);
-    }
+    targetRow.addView(btn);
+}
     private void renderVendors(String filter) {
         vendorContainer.removeAllViews();
 
