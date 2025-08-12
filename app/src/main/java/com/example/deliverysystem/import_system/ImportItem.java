@@ -60,9 +60,7 @@ public class ImportItem extends AppCompatActivity {
 
         vendorProductMap = DataSource.getVendorProductMap();
 
-        if (products.isEmpty()) {
-            findViewById(R.id.no_data_text).setVisibility(View.VISIBLE);
-        } else {
+        if (!products.isEmpty()) {
             for (String product : products) {
                 addProductInputRow(product);
             }
@@ -75,58 +73,66 @@ public class ImportItem extends AppCompatActivity {
     }
 
     private void addProductInputRow(String product) {
+        float dp = getResources().getDisplayMetrics().density;
+        int gap = (int) (12 * dp);
+
+        // 每個 row 取等寬（約 48%），兩個剛好一排
         FlexboxLayout.LayoutParams rowParams = new FlexboxLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        rowParams.setMargins(20, 16, 20, 16);
+                0, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.setMargins(gap, gap, gap, gap);
+        rowParams.setFlexBasisPercent(0.47f);        // ★ 關鍵：等寬
+        // rowParams.setAlignSelf(AlignSelf.STRETCH); // 需要等高可開
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setTag(product);
-        row.setPadding(20, 20, 20, 20);
+        row.setPadding((int)(20*dp), (int)(20*dp), (int)(20*dp), (int)(20*dp));
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setBackgroundResource(R.drawable.product_add_pattern);
         row.setLayoutParams(rowParams);
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_product);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(50, 50);
-        iconParams.setMargins(0, 0, 20, 0);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams((int)(50*dp), (int)(50*dp));
+        iconParams.setMargins(0, 0, (int)(20*dp), 0);
         row.addView(icon, iconParams);
 
+        // 用 weight 撐開，不要固定寬度
         TextView tv = new TextView(this);
         tv.setText(product);
         tv.setTextSize(20f);
         tv.setTextColor(Color.BLACK);
-        tv.setWidth(240);
+        LinearLayout.LayoutParams tvParams =
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tv.setLayoutParams(tvParams);
         row.addView(tv);
 
         ImageButton btnMinus = new ImageButton(this);
         btnMinus.setImageResource(R.drawable.ic_minus);
         btnMinus.setBackgroundColor(Color.TRANSPARENT);
-        btnMinus.setLayoutParams(new LinearLayout.LayoutParams(30, 30));
+        btnMinus.setLayoutParams(new LinearLayout.LayoutParams((int)(30*dp), (int)(30*dp)));
         row.addView(btnMinus);
 
         EditText qtyInput = new EditText(this);
         qtyInput.setText("0");
         qtyInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         qtyInput.setGravity(Gravity.CENTER);
-        qtyInput.setWidth(50);
-        qtyInput.setHeight(40);
+        qtyInput.setWidth((int)(50*dp));
+        qtyInput.setHeight((int)(40*dp));
         qtyInput.setBackgroundColor(Color.parseColor("#DDDDDD"));
-        qtyInput.setPadding(10, 0, 10, 0);
+        qtyInput.setPadding((int)(10*dp), 0, (int)(10*dp), 0);
         row.addView(qtyInput);
 
         ImageButton btnPlus = new ImageButton(this);
         btnPlus.setImageResource(R.drawable.ic_plus);
         btnPlus.setBackgroundColor(Color.TRANSPARENT);
-        btnPlus.setLayoutParams(new LinearLayout.LayoutParams(30, 30));
+        btnPlus.setLayoutParams(new LinearLayout.LayoutParams((int)(30*dp), (int)(30*dp)));
         row.addView(btnPlus);
 
         Spinner unitSpinner = new Spinner(this);
-        ArrayAdapter<String> unitAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
-                new String[]{"個", "箱", "桶", "包", "罐", "台", "袋", "張", "捲", "件", "片", "盒", "櫃"});
+        ArrayAdapter<String> unitAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"個","箱","桶","包","罐","台","袋","張","捲","件","片","盒","櫃"});
         unitAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         unitSpinner.setAdapter(unitAdapter);
         row.addView(unitSpinner);
@@ -136,7 +142,6 @@ public class ImportItem extends AppCompatActivity {
             int qty = Integer.parseInt(qtyInput.getText().toString());
             if (qty > 0) qtyInput.setText(String.valueOf(qty - 1));
         });
-
         btnPlus.setOnClickListener(v -> {
             int qty = Integer.parseInt(qtyInput.getText().toString());
             qtyInput.setText(String.valueOf(qty + 1));
@@ -144,7 +149,6 @@ public class ImportItem extends AppCompatActivity {
 
         selectedItemInputContainer.addView(row);
 
-        // ✅ 移除並重新加入新增按鈕
         if (btnSubmit != null) {
             selectedItemInputContainer.removeView(btnSubmit);
             selectedItemInputContainer.addView(btnSubmit);

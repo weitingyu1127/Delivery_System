@@ -114,16 +114,6 @@
                             android:layout_height="match_parent"
                             android:orientation="vertical"
                             android:gravity="center_horizontal">
-
-                            <TextView
-                                android:id="@+id/no_data_text"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center"
-                                android:text="暫無資料"
-                                android:textColor="@color/black"
-                                android:textSize="24sp"  />
-
                             <com.google.android.flexbox.FlexboxLayout
                                 android:id="@+id/selectedItemInputContainer"
                                 android:layout_width="match_parent"

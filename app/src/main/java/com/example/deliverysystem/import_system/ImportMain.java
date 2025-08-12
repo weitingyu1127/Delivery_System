@@ -19,18 +19,23 @@ import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexWrap;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.flexbox.JustifyContent;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ImportMain extends BaseActivity {
 
     private FlexboxLayout vendorContainer;
     private Map<String, List<String>> industryMap;
     private String currentFilter = "All";
+
+    // 兩排分類 Row（為了在點擊時同時更新選中樣式）
+    private FlexboxLayout rowRaw;   // 第一排：All + 原料
+    private FlexboxLayout rowStuff; // 第二排：物料
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +45,7 @@ public class ImportMain extends BaseActivity {
         FlexboxLayout mainContainer = findViewById(R.id.main_container);
         Map<String, VendorInfo> vendorMap = DataSource.getVendorProductMap();
 
-        // 整理 industryMap
+        // 整理 industryMap（保留原邏輯，用 industry 當 key，收集 vendor 名單）
         industryMap = new LinkedHashMap<>();
         for (Map.Entry<String, VendorInfo> entry : vendorMap.entrySet()) {
             String vendor = entry.getKey();
@@ -49,25 +54,39 @@ public class ImportMain extends BaseActivity {
             industryMap.get(industry).add(vendor);
         }
 
-        // 👉 分類按鈕列
-        LinearLayout categoryRow = new LinearLayout(this);
-        categoryRow.setOrientation(LinearLayout.HORIZONTAL);
-        categoryRow.setLayoutParams(new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        // "All" 按鈕
-        addCategoryButton(categoryRow, "All");
-
-        // 其他分類
-        for (String industry : industryMap.keySet()) {
-            addCategoryButton(categoryRow, industry);
+        // 依 type 自動蒐集 industry：原料 / 物料（用 LinkedHashSet 保序又去重）
+        Set<String> rawIndustries = new LinkedHashSet<>();
+        Set<String> stuffIndustries = new LinkedHashSet<>();
+        for (VendorInfo info : vendorMap.values()) {
+            String industry = info.getIndustry();
+            String type = info.getType(); // "原料" or "物料"
+            if ("原料".equals(type)) {
+                rawIndustries.add(industry);
+            } else if ("物料".equals(type)) {
+                stuffIndustries.add(industry);
+            }
         }
 
-        mainContainer.addView(categoryRow);
+        // 在 onCreate 裡
+        // 第 1 排：原料
+        LinearLayout rawRowContainer = makeRowWithLabel("原料:");
+        rowRaw = (FlexboxLayout) rawRowContainer.getChildAt(1); // 第二個子元件是 FlexboxLayout
+        addCategoryButton(rowRaw, "All");
+        for (String industry : rawIndustries) {
+            addCategoryButton(rowRaw, industry);
+        }
+        mainContainer.addView(rawRowContainer);
 
-        // 👉 廠商按鈕容器（會根據選擇的分類清空再重新加入）
+        // 第 2 排：物料
+        LinearLayout stuffRowContainer = makeRowWithLabel("物料:");
+        rowStuff = (FlexboxLayout) stuffRowContainer.getChildAt(1);
+        for (String industry : stuffIndustries) {
+            addCategoryButton(rowStuff, industry);
+        }
+        mainContainer.addView(stuffRowContainer);
+
+
+        // 👉 廠商按鈕容器（依選擇分類刷新）
         vendorContainer = new FlexboxLayout(this);
         vendorContainer.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -82,40 +101,87 @@ public class ImportMain extends BaseActivity {
 
         // 預設顯示 All
         renderVendors("All");
-        updateCategoryColors(categoryRow);
+        // 同步更新兩排的選中樣式
+        updateCategoryColors(rowRaw);
+        updateCategoryColors(rowStuff);
+    }
+    /** 建立一排：左邊是標籤，右邊是可換行的 FlexboxLayout */
+    private LinearLayout makeRowWithLabel(String labelText) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.HORIZONTAL);
+        container.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        container.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView label = new TextView(this);
+        label.setText(labelText);
+        label.setTextSize(20);
+        label.setTextColor(Color.BLACK);
+        label.setPadding(0, 0, 16, 0); // 標籤與按鈕間距
+        container.addView(label);
+
+        FlexboxLayout flexRow = makeFlexRow();
+        flexRow.setLayoutParams(new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+        ));
+        container.addView(flexRow);
+
+        return container;
     }
 
-    private void addCategoryButton(LinearLayout categoryRow, String label) {
+    /** 建一排可換行的 Flexbox row（保持你既有風格） */
+    private FlexboxLayout makeFlexRow() {
+        FlexboxLayout row = new FlexboxLayout(this);
+        row.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        row.setFlexWrap(FlexWrap.WRAP);
+        row.setJustifyContent(JustifyContent.FLEX_START);
+        row.setAlignItems(AlignItems.CENTER);
+        row.setPadding(0, 0, 0, 0);
+        return row;
+    }
+
+    private void addCategoryButton(FlexboxLayout targetRow, String label) {
         Button btn = new Button(this);
         btn.setText(label);
         btn.setTextSize(18);
         btn.setTextColor(Color.BLACK);
-        btn.setBackgroundResource(R.drawable.btn_category_white); // ✅ 使用 drawable
+        btn.setBackgroundResource(R.drawable.btn_category_white);
+        // 給左右空間（px）；如要 dp→px 可再換算
+        btn.setPadding(32, 8, 32, 8);
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                (int) getResources().getDisplayMetrics().density * 108,
-                (int) getResources().getDisplayMetrics().density * 60
+        FlexboxLayout.LayoutParams lp = new FlexboxLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        params.setMargins(8, 8, 8, 8);
-        btn.setLayoutParams(params);
+        lp.setMargins(8, 12, 8, 12); // 按鈕間距：左右 8、上下 12
+        btn.setLayoutParams(lp);
 
         btn.setOnClickListener(v -> {
             currentFilter = label;
             renderVendors(label);
-            updateCategoryColors((ViewGroup) categoryRow);
+            // 兩排都更新選中樣式（不改你的 updateCategoryColors 寫法，只是各呼叫一次）
+            updateCategoryColors(rowRaw);
+            updateCategoryColors(rowStuff);
         });
 
-        categoryRow.addView(btn);
+        targetRow.addView(btn);
     }
 
-
+    /** 保留你原本的寫法：逐一檢查該 row 裡的 Button */
     private void updateCategoryColors(ViewGroup categoryRow) {
         for (int i = 0; i < categoryRow.getChildCount(); i++) {
-            Button btn = (Button) categoryRow.getChildAt(i);
-            if (btn.getText().toString().equals(currentFilter)) {
-                btn.setBackgroundResource(R.drawable.btn_category_orange);
-            } else {
-                btn.setBackgroundResource(R.drawable.btn_category_white); // ✅ 白底黑框還原
+            if (categoryRow.getChildAt(i) instanceof Button) {
+                Button btn = (Button) categoryRow.getChildAt(i);
+                if (btn.getText().toString().equals(currentFilter)) {
+                    btn.setBackgroundResource(R.drawable.btn_category_orange);
+                } else {
+                    btn.setBackgroundResource(R.drawable.btn_category_white);
+                }
             }
         }
     }
@@ -135,11 +201,11 @@ public class ImportMain extends BaseActivity {
         for (String vendor : filtered) {
             LinearLayout itemLayout = new LinearLayout(this);
             itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-            itemLayout.setBackgroundResource(R.drawable.btn_vendor_pattern); // 你已設計的背景
+            itemLayout.setBackgroundResource(R.drawable.btn_vendor_pattern);
             itemLayout.setPadding(24, 16, 24, 16);
             itemLayout.setGravity(Gravity.CENTER_VERTICAL);
 
-            int widthInDp = 484;
+            int widthInDp = 400;
             int heightInDp = 93;
             float scale = getResources().getDisplayMetrics().density;
 
@@ -160,7 +226,7 @@ public class ImportMain extends BaseActivity {
             iconContainer.setBackgroundResource(R.drawable.circle_gray_pattern);
 
             ImageView icon = new ImageView(this);
-            icon.setImageResource(R.drawable.ic_person); // 用你自己的 user icon
+            icon.setImageResource(R.drawable.ic_person);
             icon.setLayoutParams(new FrameLayout.LayoutParams(32, 32, Gravity.CENTER));
             iconContainer.addView(icon);
 
@@ -170,12 +236,12 @@ public class ImportMain extends BaseActivity {
             nameText.setTextSize(18);
             nameText.setTextColor(Color.BLACK);
             nameText.setLayoutParams(new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)); // 占滿中間空間
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             nameText.setPadding(24, 0, 24, 0);
 
             // 右側箭頭
             ImageView arrow = new ImageView(this);
-            arrow.setImageResource(R.drawable.ic_arrow); // 右側箭頭圖
+            arrow.setImageResource(R.drawable.ic_arrow);
             LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(48, 48);
             arrow.setLayoutParams(arrowParams);
 
@@ -192,6 +258,5 @@ public class ImportMain extends BaseActivity {
 
             vendorContainer.addView(itemLayout);
         }
-
     }
 }
