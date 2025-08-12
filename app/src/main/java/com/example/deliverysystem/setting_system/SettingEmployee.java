@@ -23,6 +23,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SettingEmployee extends BaseActivity {
@@ -43,53 +44,76 @@ public class SettingEmployee extends BaseActivity {
 
         populateEmployeeList();
     }
-
     private void populateEmployeeList() {
         employeeListLayout.removeAllViews();
 
-        List<String> confirmList = DataSource.getConfirmPerson();
-        List<String> inspectorList = DataSource.getInspector();
+        List<Map<String,String>> confirmList = DataSource.getConfirmPerson(); // List<Map<id,name>>
+        List<Map<String,String>> inspectorList = DataSource.getInspector();
 
-        Set<String> added = new HashSet<>();
+        Set<String> addedIds = new HashSet<>();
 
-        // 先加入打勾的員工
-        for (String name : confirmList) {
-            if (added.add(name)) {
-                addEmployeeItem(employeeListLayout, name, true);
+        // 先加入打勾的
+        for (Map<String,String> m : confirmList) {
+            String id = m.get("id");
+            String name = m.get("name");
+            if (id != null && addedIds.add(id)) {
+                addEmployeeItem(employeeListLayout, id, name, true);
             }
         }
-
-        // 再加入未打勾的員工
-        for (String name : inspectorList) {
-            if (added.add(name)) {
-                addEmployeeItem(employeeListLayout, name, false);
+        // 再加入未打勾的
+        for (Map<String,String> m : inspectorList) {
+            String id = m.get("id");
+            String name = m.get("name");
+            if (id != null && addedIds.add(id)) {
+                addEmployeeItem(employeeListLayout, id, name, false);
             }
         }
     }
 
-    private void addEmployeeItem(FlexboxLayout parentLayout, String name, boolean isChecked) {
-        View itemView = getLayoutInflater().inflate(R.layout.employee_item_pattern, parentLayout, false);
+private void addEmployeeItem(FlexboxLayout parentLayout, String id, String name, boolean isChecked) {
+    View itemView = getLayoutInflater().inflate(R.layout.employee_item_pattern, parentLayout, false);
 
-        TextView nameView = itemView.findViewById(R.id.nameText);
-        ImageView toggleIcon = itemView.findViewById(R.id.toggleIcon);
+    TextView nameView = itemView.findViewById(R.id.nameText);
+    ImageView toggleIcon = itemView.findViewById(R.id.toggleIcon);
+    ImageView deleteIcon = itemView.findViewById(R.id.deleteIcon);
 
-        nameView.setText(name);
-        toggleIcon.setImageResource(isChecked ? R.drawable.circle_checked : R.drawable.circle_unchecked_gray);
+    nameView.setText(name);
+    toggleIcon.setImageResource(isChecked ? R.drawable.circle_checked : R.drawable.circle_unchecked_gray);
 
-        toggleIcon.setOnClickListener(v -> {
-            boolean newChecked = !isChecked;
-            ConnectDB.updateAuthorityEmployee(name, newChecked, SettingEmployee.this, (success, message, confirmList, inspectorList) -> {
-                Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
-                if (success) {
-                    DataSource.setConfirmPersons(confirmList);
-                    DataSource.setInspectors(inspectorList);
-                    populateEmployeeList(); // 🔄 正確刷新
-                }
-            });
-        });
-        parentLayout.addView(itemView);
-    }
+    toggleIcon.setOnClickListener(v -> {
+        boolean newChecked = !isChecked;
+        ConnectDB.updateAuthorityEmployee(id, newChecked, SettingEmployee.this,
+                (success, message, confirmList, inspectorList) -> {
+                    Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
+                    if (success) {
+                        DataSource.setConfirmPersons(confirmList);   // List<Map<String,String>>
+                        DataSource.setInspectors(inspectorList);     // List<Map<String,String>>
+                        populateEmployeeList();
+                    }
+                });
+    });
 
+    deleteIcon.setOnClickListener(v -> {
+        new AlertDialog.Builder(SettingEmployee.this)
+                .setTitle("刪除員工")
+                .setMessage("確定要刪除 " + name + " 嗎？")
+                .setPositiveButton("刪除", (dialog, which) -> {
+                    ConnectDB.deleteEmployee(id, SettingEmployee.this,
+                            (success, message, confirmList, inspectorList) -> {
+                                Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
+                                if (success) {
+                                    DataSource.setConfirmPersons(confirmList);
+                                    DataSource.setInspectors(inspectorList);
+                                    populateEmployeeList();
+                                }
+                            });
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    });
+
+    parentLayout.addView(itemView);
+}
     private void showAddEmployeeDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("新增員工名稱");

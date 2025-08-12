@@ -40,23 +40,13 @@ public class DataSource {
         return info != null ? info.getType() : "";
     }
     // 職員
-    private static List<String> inspectors = new ArrayList<>();
-    private static List<String> confirmPerson = new ArrayList<>();
-    public static List<String> getInspector() {
-        return inspectors;
-    }
-    public static void setInspectors(List<String> list) {
-        inspectors.clear();
-        inspectors.addAll(list);
-    }
-    public static List<String> getConfirmPerson() {
-        return confirmPerson;
-    }
-    public static void setConfirmPersons(List<String> list) {
-        confirmPerson.clear();
-        confirmPerson.addAll(list);
-    }
+    private static List<Map<String,String>> confirmPerson = new ArrayList<>();
+    private static List<Map<String,String>> inspectors     = new ArrayList<>();
+    public static List<Map<String,String>> getConfirmPerson() { return confirmPerson; }
+    public static List<Map<String,String>> getInspector()     { return inspectors; }
 
+    public static void setConfirmPersons(List<Map<String,String>> data) { confirmPerson = data; }
+    public static void setInspectors(List<Map<String,String>> data)     { inspectors = data; }
 
     //權限密碼
     private static List<String> passwords = new ArrayList<>();

@@ -26,6 +26,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
@@ -50,30 +51,70 @@ import java.util.function.Consumer;
 public class ConnectDB {
 
     // === 員工資料：inspector / confirmPerson ===
+//    public static void getEmployees(String type, Runnable callback) {
+//        FirebaseFirestore db = FirebaseFirestore.getInstance();
+//
+//        // 根據 type 設定查詢條件
+//        boolean isConfirm = "confirmPerson".equals(type);
+//
+//        db.collection("employees")
+//                .whereEqualTo("employee_authority", isConfirm)
+//                .get()
+//                .addOnSuccessListener(queryDocumentSnapshots -> {
+//                    List<String> nameList = new ArrayList<>();
+//                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+//                        String name = doc.getString("employee_name");
+//                        if (name != null) {
+//                            nameList.add(name);
+//                        }
+//                    }
+//
+//                    if (!isConfirm) {
+//                        DataSource.setInspectors(nameList);
+//                        Log.d("inspector", nameList.toString());
+//                    } else {
+//                        DataSource.setConfirmPersons(nameList);
+//                        Log.d("confirmPerson", nameList.toString());
+//                    }
+//
+//                    if (callback != null) callback.run();
+//                })
+//                .addOnFailureListener(e -> {
+//                    Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
+//                    if (callback != null) callback.run();
+//                });
+//    }
     public static void getEmployees(String type, Runnable callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        // 根據 type 設定查詢條件
         boolean isConfirm = "confirmPerson".equals(type);
 
         db.collection("employees")
                 .whereEqualTo("employee_authority", isConfirm)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<String> nameList = new ArrayList<>();
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                .addOnSuccessListener(qs -> {
+                    List<Map<String, String>> list = new ArrayList<>();
+                    for (DocumentSnapshot doc : qs) {
+                        String id   = doc.getId();
                         String name = doc.getString("employee_name");
-                        if (name != null) {
-                            nameList.add(name);
-                        }
+                        if (name == null) continue;
+                        name = name.trim();
+                        if (name.isEmpty()) continue;
+
+                        Map<String, String> m = new HashMap<>();
+                        m.put("id", id);
+                        m.put("name", name);
+                        list.add(m);
                     }
 
-                    if (!isConfirm) {
-                        DataSource.setInspectors(nameList);
-                        Log.d("inspector", nameList.toString());
+                    // 依姓名排序（可省略）
+                    list.sort(Comparator.comparing(m -> m.getOrDefault("name", "")));
+
+                    if (isConfirm) {
+                        DataSource.setConfirmPersons(list);   // List<Map<String,String>>
+                        Log.d("confirmPerson", list.toString());
                     } else {
-                        DataSource.setConfirmPersons(nameList);
-                        Log.d("confirmPerson", nameList.toString());
+                        DataSource.setInspectors(list);       // List<Map<String,String>>
+                        Log.d("inspector", list.toString());
                     }
 
                     if (callback != null) callback.run();
@@ -193,13 +234,6 @@ public class ConnectDB {
                     e.printStackTrace();
                     callback.accept(new ArrayList<>());
                 });
-    }
-
-
-    // 時間格式轉換 yyyy-MM-dd
-    private static String formatDate(Timestamp ts) {
-        if (ts == null) return "";
-        return new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(ts.toDate());
     }
 
     public static void getImportRecords(String vendorName, Consumer<List<ImportRecord>> callback) {
@@ -541,66 +575,71 @@ public class ConnectDB {
         });
 
     }
-    public static void updateAuthorityEmployee(String name, boolean isChecked, Context context, UpdateEmployeeCallback callback) {
+    public static void updateAuthorityEmployee(String id, boolean isChecked, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        db.collection("employees")
-                .whereEqualTo("employee_name", name)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (queryDocumentSnapshots.isEmpty()) {
-                        ((Activity) context).runOnUiThread(() ->
-                                callback.onResult(false, "找不到員工：" + name, new ArrayList<>(), new ArrayList<>()));
-                        return;
-                    }
-
-                    // 更新符合條件的 document
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        doc.getReference().update("employee_authority", isChecked)
-                                .addOnSuccessListener(unused -> {
-                                    fetchUpdatedLists(db, context, callback);
-                                })
-                                .addOnFailureListener(e -> {
-                                    e.printStackTrace();
-                                    ((Activity) context).runOnUiThread(() ->
-                                            callback.onResult(false, "更新失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
-                                });
-                    }
-                })
+        db.collection("employees").document(id)
+                .update("employee_authority", isChecked)
+                .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
                     ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(false, "查詢失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                            callback.onResult(false, "更新失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                });
+    }
+
+    public static void deleteEmployee(String id, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("employees").document(id)
+                .delete()
+                .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    ((Activity) context).runOnUiThread(() ->
+                            callback.onResult(false, "刪除失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
                 });
     }
 
     // 🔁 更新後重新抓取 confirmList / inspectorList
-    private static void fetchUpdatedLists(FirebaseFirestore db, Context context, UpdateEmployeeCallback callback) {
-        List<String> confirmList = new ArrayList<>();
-        List<String> inspectorList = new ArrayList<>();
-
+    private static void fetchUpdatedLists(FirebaseFirestore db,
+                                          Context context,
+                                          EmployeeUpdateCallback callback) {
         db.collection("employees").get()
                 .addOnSuccessListener(allDocs -> {
-                    for (DocumentSnapshot doc : allDocs) {
-                        String empName = doc.getString("employee_name");
-                        Boolean isConfirm = doc.getBoolean("employee_authority");
+                    List<Map<String, String>> confirmList = new ArrayList<>();
+                    List<Map<String, String>> inspectorList = new ArrayList<>();
 
-                        if (empName != null && isConfirm != null) {
-                            if (isConfirm) {
-                                confirmList.add(empName);
-                            } else {
-                                inspectorList.add(empName);
-                            }
-                        }
+                    for (DocumentSnapshot doc : allDocs) {
+                        String id = doc.getId();
+                        String name = doc.getString("employee_name");
+                        Boolean isConfirm = doc.getBoolean("employee_authority");
+                        if (name == null || isConfirm == null) continue;
+                        name = name.trim();
+                        if (name.isEmpty()) continue;
+
+                        Map<String, String> emp = new HashMap<>();
+                        emp.put("id", id);
+                        emp.put("name", name);
+
+                        if (isConfirm) confirmList.add(emp);
+                        else           inspectorList.add(emp);
                     }
 
+                    Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
+                    confirmList.sort(byName);
+                    inspectorList.sort(byName);
+
                     ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(true, "更新成功", confirmList, inspectorList));
+                            callback.onResult(true, "更新成功", confirmList, inspectorList)
+                    );
                 })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
                     ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(false, "取得名單失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+                            callback.onResult(false, "取得名單失敗：" + e.getMessage(),
+                                    new ArrayList<>(), new ArrayList<>())
+                    );
                 });
     }
 
@@ -623,38 +662,51 @@ public class ConnectDB {
                     callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
                 });
     }
-    private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
-        CollectionReference employeeRef = db.collection("employees");
+    private static void fetchEmployeeLists(FirebaseFirestore db,
+                                           EmployeeUpdateCallback callback,
+                                           boolean success,
+                                           String message) {
 
-        employeeRef.get().addOnSuccessListener(querySnapshot -> {
-            List<String> confirmList = new ArrayList<>();
-            List<String> inspectorList = new ArrayList<>();
+        db.collection("employees").get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, String>> confirmList = new ArrayList<>();
+                    List<Map<String, String>> inspectorList = new ArrayList<>();
 
-            for (QueryDocumentSnapshot doc : querySnapshot) {
-                String empName = doc.getString("employee_name");
-                Boolean empAuthority = doc.getBoolean("employee_authority");
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String empId = doc.getId();
+                        String empName = doc.getString("employee_name");
+                        Boolean empAuthority = doc.getBoolean("employee_authority");
+                        if (empName == null || empAuthority == null) continue;
+                        empName = empName.trim();
+                        if (empName.isEmpty()) continue;
 
-                if (empName != null && empAuthority != null) {
-                    if (empAuthority) {
-                        confirmList.add(empName);  // true → 確認人員
-                    } else {
-                        inspectorList.add(empName);  // false → 驗收人員
+                        Map<String, String> emp = new HashMap<>();
+                        emp.put("id", empId);
+                        emp.put("name", empName);
+
+                        if (empAuthority) confirmList.add(emp);
+                        else              inspectorList.add(emp);
                     }
-                }
-            }
 
-            callback.onResult(success, message, confirmList, inspectorList);
-        }).addOnFailureListener(e -> {
-            e.printStackTrace();
-            callback.onResult(false, "讀取清單失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
-        });
+                    // 可選：排序（依姓名）
+                    Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
+                    confirmList.sort(byName);
+                    inspectorList.sort(byName);
+
+                    callback.onResult(true, message, confirmList, inspectorList);
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.onResult(false, "讀取清單失敗：" + e.getMessage(),
+                            new ArrayList<>(), new ArrayList<>());
+                });
     }
-
 
     public interface EmployeeUpdateCallback {
-        void onResult(boolean success, String message, List<String> confirmList, List<String> inspectorList);
+        void onResult(boolean success, String message,
+                      List<Map<String, String>> confirmList,
+                      List<Map<String, String>> inspectorList);
     }
-
     public static void uploadImageToFirebase(Context context, Uri imageUri, String filename, Consumer<String> callback) {
         FirebaseStorage storage = FirebaseStorage.getInstance();
         StorageReference storageRef = storage.getReference().child("inspect_images/" + filename);

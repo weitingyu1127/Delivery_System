@@ -246,28 +246,40 @@ public class InspectTable extends BaseActivity {
         setupSpinnerData(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "", "confirm");
     }
 
-    private void setupSpinnerData(int spinnerId, List<String> data, String selectedData, String type) {
+    private void setupSpinnerData(int spinnerId, List<Map<String, String>> data, String selectedId, String type) {
         Spinner spinner = findViewById(spinnerId);
-        setupSpinnerAdapter(spinner, data, selectedData, type);
+        setupSpinnerAdapter(spinner, data, selectedId, type);
     }
-
-    private void setupSpinnerAdapter(Spinner spinner, List<String> data, String selectedData, String type) {
-        List<String> spinnerData = new ArrayList<>();
-        if (type == "inspect"){
-            spinnerData.add("驗收人員");
-        }else {
-            spinnerData.add("確認人員");
+    private void setupSpinnerAdapter(Spinner spinner, List<Map<String, String>> data, String selectedId, String type) {
+        // 建立顯示用清單
+        List<String> spinnerDisplayList = new ArrayList<>();
+        // 第一項提示文字
+        if ("inspect".equals(type)) { // ⚠ 用 equals 判斷字串
+            spinnerDisplayList.add("驗收人員");
+        } else {
+            spinnerDisplayList.add("確認人員");
         }
-        spinnerData.addAll(data);
+
+        // 把 Map 中的 name 加到顯示清單
+        for (Map<String, String> emp : data) {
+            spinnerDisplayList.add(emp.get("name"));
+        }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, spinnerData
+                this, android.R.layout.simple_spinner_item, spinnerDisplayList
         );
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
-        if (selectedData != null && !selectedData.trim().isEmpty()) {
-            int position = adapter.getPosition(selectedData);
+        // 設定預選項（根據 id）
+        if (selectedId != null && !selectedId.trim().isEmpty()) {
+            int position = -1;
+            for (int i = 0; i < data.size(); i++) {
+                if (selectedId.equals(data.get(i).get("id"))) {
+                    position = i + 1; // +1 因為第0項是提示文字
+                    break;
+                }
+            }
             if (position >= 0) {
                 spinner.setSelection(position);
             }
