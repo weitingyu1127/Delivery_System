@@ -33,6 +33,7 @@ import com.example.deliverysystem.data_source.VendorInfo;
 import com.example.deliverysystem.setting_system.SettingMain;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -80,20 +81,21 @@ public class InspectTable extends BaseActivity {
 
         Button searchBtn = findViewById(R.id.btnSearch);
         searchBtn.setOnClickListener(v -> {
-            Spinner vendorSp   = findViewById(R.id.spinnerVendor);
-            Spinner productSp  = findViewById(R.id.spinnerProduct);
-            Spinner inspectorSp= findViewById(R.id.spinnerInspector);
-            Spinner confirmerSp= findViewById(R.id.spinnerConfirmPerson);
-            TextView dateTv    = findViewById(R.id.date_text);
+            Spinner vendorSp    = findViewById(R.id.spinnerVendor);
+            Spinner productSp   = findViewById(R.id.spinnerProduct);
+            Spinner placeSp     = findViewById(R.id.spinnerPlace);
+            Spinner inspectorSp = findViewById(R.id.spinnerInspector);
+            Spinner confirmerSp = findViewById(R.id.spinnerConfirmPerson);
+            TextView dateTv     = findViewById(R.id.date_text);
 
-            String vendor    = vendorSp.getSelectedItemPosition()   == 0 ? "" : vendorSp.getSelectedItem().toString();
-            String product   = productSp.getSelectedItemPosition()  == 0 ? "" : productSp.getSelectedItem().toString();
-            String inspector = inspectorSp.getSelectedItemPosition()== 0 ? "" : inspectorSp.getSelectedItem().toString();
-            String confirmer = confirmerSp.getSelectedItemPosition()== 0 ? "" : confirmerSp.getSelectedItem().toString();
+            String vendor    = vendorSp.getSelectedItemPosition()    == 0 ? "" : vendorSp.getSelectedItem().toString();
+            String product   = productSp.getSelectedItemPosition()   == 0 ? "" : productSp.getSelectedItem().toString();
+            String place     = placeSp.getSelectedItemPosition()     == 0 ? "" : placeSp.getSelectedItem().toString(); // ✅ 改名
+            String inspector = inspectorSp.getSelectedItemPosition() == 0 ? "" : inspectorSp.getSelectedItem().toString();
+            String confirmer = confirmerSp.getSelectedItemPosition() == 0 ? "" : confirmerSp.getSelectedItem().toString();
+            String date      = "選擇進貨日期".contentEquals(dateTv.getText()) ? "" : dateTv.getText().toString();
 
-            String date = "選擇進貨日期".contentEquals(dateTv.getText()) ? "" : dateTv.getText().toString();
-
-            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date);
+            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date, place); // ✅ 多帶 place
         });
         getInspectData();
     }
@@ -128,6 +130,7 @@ public class InspectTable extends BaseActivity {
                         record.getPalletComplete(),
                         record.getCoa(),
                         record.getNote(),
+                        record.getPlace(),
                         record.getPicture(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
@@ -150,6 +153,7 @@ public class InspectTable extends BaseActivity {
                         record.getPalletComplete(),
                         record.getCoa(),
                         record.getNote(),
+                        record.getPlace(),
                         record.getPicture(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
@@ -165,9 +169,9 @@ public class InspectTable extends BaseActivity {
         ViewGroup tableLayout = findViewById(R.id.inspectTable);
         tableLayout.removeAllViews(); // 清空子 View（表格列）
     }
-    private void fetchFilteredRecords(String type, String vendor, String product, String inspector, String confirmer, String date) {
+    private void fetchFilteredRecords(String type, String vendor, String product, String inspector, String confirmer, String date, String place) {
         clearTable();
-        ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, records -> {
+        ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, place, records -> {
             DataSource.setInspectRecords(records);
             runOnUiThread(this::onInspectDataReady);
             TextView textSelectedDate = findViewById(R.id.date_text);
@@ -178,6 +182,7 @@ public class InspectTable extends BaseActivity {
     private void setupSpinner(String type) {
         Spinner vendorSpinner = findViewById(R.id.spinnerVendor);
         Spinner productSpinner = findViewById(R.id.spinnerProduct);
+        Spinner placeSpinner = findViewById(R.id.spinnerPlace);
 
         // ✅ 建立 vendor 清單，僅取指定 type 的 vendor
         List<String> vendorList = new ArrayList<>();
@@ -241,6 +246,21 @@ public class InspectTable extends BaseActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
+        List<String> placeList = Arrays.asList("進貨地點", "線西", "倉庫", "本廠");
+        ArrayAdapter<String> placeAdapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, placeList
+        );
+        placeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        placeSpinner.setAdapter(placeAdapter);
+        placeSpinner.setSelection(0, false); // 預設顯示提示文字
+
+        placeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // 這裡若需要即時反應可以加邏輯；通常送出時再檢查是否為「進貨地點」
+//                 String place = placeSpinner.getSelectedItem().toString();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
         // 其他 spinner 初始化
         setupSpinnerData(R.id.spinnerInspector, DataSource.getInspector(), "", "inspect");
         setupSpinnerData(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "", "confirm");
@@ -286,7 +306,7 @@ public class InspectTable extends BaseActivity {
         }
     }
     private void addTableRow(String importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
-                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String picture, String inspector,
+                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, String picture, String inspector,
                              String confirmed, String odor, String degree, String type) {
         LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
@@ -316,7 +336,7 @@ public class InspectTable extends BaseActivity {
 
         String noteText = (note == null || note.trim().isEmpty() || note.equalsIgnoreCase("null")) ? "" : note;
         TextView tableNote = createCell("note",noteText, 200, textSize, padding);
-
+        TextView tablePlace = createCell("place",place, 80, textSize, padding);
         // 加入所有欄位到該列
         rowLayout.addView(tableDate);
         rowLayout.addView(tableVendor);
@@ -339,7 +359,7 @@ public class InspectTable extends BaseActivity {
         rowLayout.addView(tablePallet);
         rowLayout.addView(tableCoa);
         rowLayout.addView(tableNote);
-
+        rowLayout.addView(tablePlace);
         View inspectorView;
         if (inspector == null || inspector.trim().isEmpty() || inspector.equalsIgnoreCase("null")) {
             Button inspectorBtn = new Button(this);
@@ -363,6 +383,7 @@ public class InspectTable extends BaseActivity {
                 intent.putExtra("vendor", vendor);
                 intent.putExtra("itemName", itemName);
                 intent.putExtra("amount", amount);
+                intent.putExtra("place", place);
                 intent.putExtra("staff", "inspector");
                 startActivity(intent);
             });
@@ -413,6 +434,7 @@ public class InspectTable extends BaseActivity {
                                 intent.putExtra("pallet", pallet);
                                 intent.putExtra("COA", COA);
                                 intent.putExtra("note", note);
+                                intent.putExtra("place", place);
                                 intent.putExtra("picture", picture);
                                 intent.putExtra("inspector", inspector);
                                 intent.putExtra("confirmed", confirmed);
@@ -468,6 +490,7 @@ public class InspectTable extends BaseActivity {
             intent.putExtra("pallet", pallet);
             intent.putExtra("COA", COA);
             intent.putExtra("note", note);
+            intent.putExtra("place", place);
             intent.putExtra("picture", picture);
             intent.putExtra("inspector", inspector);
             intent.putExtra("confirmed", confirmed);

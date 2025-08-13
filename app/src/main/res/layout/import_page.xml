@@ -170,7 +170,14 @@
                         android:textSize="16dp"
                         android:textColor="#757575"
                         android:gravity="center_horizontal"/>
-
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_weight="0.5"
+                        android:layout_height="wrap_content"
+                        android:text="進貨地點"
+                        android:textSize="16dp"
+                        android:textColor="#757575"
+                        android:gravity="center_horizontal"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_weight="0.5"

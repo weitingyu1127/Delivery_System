@@ -125,7 +125,8 @@ public class ImportTable extends BaseActivity {
                         record.getImportDate(),
                         record.getVendor(),
                         record.getProduct(),
-                        record.getQuantity()
+                        record.getQuantity(),
+                        record.getPlace()
                 );
             }
         }
@@ -139,7 +140,8 @@ public class ImportTable extends BaseActivity {
                         record.getImportDate(),
                         record.getVendor(),
                         record.getProduct(),
-                        record.getQuantity()
+                        record.getQuantity(),
+                        record.getPlace()
                 );
             }
         }
@@ -149,7 +151,7 @@ public class ImportTable extends BaseActivity {
         tableLayout.removeAllViews();
     }
 
-    private void addTableRow(String importId, String date, String vendorName, String itemName, String summaryAmount) {
+    private void addTableRow(String importId, String date, String vendorName, String itemName, String summaryAmount, String place) {
         LinearLayout tableLayout = findViewById(R.id.importTable);
 
         LinearLayout rowLayout = new LinearLayout(this);
@@ -168,6 +170,7 @@ public class ImportTable extends BaseActivity {
         TextView tableVendor = createCell(vendorName, 0.5f, textSize, padding);
         TextView tableItem = createCell(itemName, 0.5f, textSize, padding);
         TextView tableSum = createCell(summaryAmount, 0.5f, textSize, padding);
+        TextView tablePlace = createCell(place, 0.5f, textSize, padding);
 
         LinearLayout btnContainer = new LinearLayout(this);
         LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
@@ -207,6 +210,7 @@ public class ImportTable extends BaseActivity {
         rowLayout.addView(tableVendor);
         rowLayout.addView(tableItem);
         rowLayout.addView(tableSum);
+        rowLayout.addView(tablePlace);
         rowLayout.addView(btnContainer);
 
         // 建立分隔線

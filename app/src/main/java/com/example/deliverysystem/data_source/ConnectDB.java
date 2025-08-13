@@ -185,6 +185,7 @@ public class ConnectDB {
                         String palletComplete  = doc.getString("pallet_complete");
                         String coa             = doc.getString("coa");
                         String note            = doc.getString("note");
+                        String place            = doc.getString("place");
                         String picture         = doc.getString("image_name");
                         String inspectorStaff  = doc.getString("inspector_staff");
                         String confirmStaff    = doc.getString("confirm_staff");
@@ -196,14 +197,14 @@ public class ConnectDB {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, picture,
+                                    quantity, validDate, palletComplete, coa, note, place, picture,
                                     inspectorStaff, confirmStaff, odor, degree
                             );
                         } else {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, picture,
+                                    quantity, validDate, palletComplete, coa, note, place, picture,
                                     inspectorStaff, confirmStaff, "", ""
                             );
                         }
@@ -234,7 +235,8 @@ public class ConnectDB {
                                     doc.getString("import_date"),
                                     doc.getString("vendor"),
                                     doc.getString("product"),
-                                    doc.getString("quantity")
+                                    doc.getString("quantity"),
+                                    doc.getString("place")
                             );
                             records.add(record);
 
@@ -278,7 +280,7 @@ public class ConnectDB {
                 });
     }
 
-    public static void addImportRecord(String type, String date, String vendor, String product, String quantity,
+    public static void addImportRecord(String type, String date, String vendor, String product, String quantity, String place,
                                        Context context, Consumer<Boolean> callback) {
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -291,6 +293,7 @@ public class ConnectDB {
         importData.put("vendor", vendor);
         importData.put("product", product);
         importData.put("quantity", quantity);
+        importData.put("place", place);
 
         db.collection("import_records").document(importId)
                 .set(importData)
@@ -366,7 +369,7 @@ public class ConnectDB {
 
     public static void getFilteredInspectRecords(
             String type, String vendor, String product,
-            String inspector, String confirmer, String date,
+            String inspector, String confirmer, String date, String place,
             Consumer<List<InspectRecord>> callback) {
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -377,9 +380,9 @@ public class ConnectDB {
         if (!type.isEmpty()) query = query.whereEqualTo("type", type);
         if (!vendor.isEmpty()) query = query.whereEqualTo("vendor", vendor);
         if (!product.isEmpty()) query = query.whereEqualTo("product", product);
+        if (!place.isEmpty()) query = query.whereEqualTo("place", place);
         if (!inspector.isEmpty()) query = query.whereEqualTo("inspector_staff", inspector);
         if (!confirmer.isEmpty()) query = query.whereEqualTo("confirm_staff", confirmer);
-
         if (!date.isEmpty()) {
             query = query.whereEqualTo("import_date", date);
         }
@@ -402,6 +405,7 @@ public class ConnectDB {
                             doc.getString("pallet_complete"),
                             doc.getString("coa"),
                             doc.getString("note"),
+                            doc.getString("place"),
                             doc.getString("image_name"),
                             doc.getString("inspector_staff"),
                             doc.getString("confirm_staff"),

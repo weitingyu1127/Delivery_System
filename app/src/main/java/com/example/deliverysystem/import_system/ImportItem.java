@@ -48,6 +48,17 @@ public class ImportItem extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.import_item);
 
+        Spinner importPlace = findViewById(R.id.import_place);
+        List<String> placeList = Arrays.asList("進貨地點","本廠", "倉庫", "線西");
+        ArrayAdapter<String> placeAdapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                placeList
+        );
+        placeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        importPlace.setAdapter(placeAdapter);
+        importPlace.setSelection(0, false);
+
         vendorName = getIntent().getStringExtra("vendor_name");
 
         TextView title = findViewById(R.id.import_vendor_title);
@@ -81,7 +92,7 @@ public class ImportItem extends AppCompatActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT);
         rowParams.setMargins(gap, gap, gap, gap);
         rowParams.setFlexBasisPercent(0.47f);        // ★ 關鍵：等寬
-        // rowParams.setAlignSelf(AlignSelf.STRETCH); // 需要等高可開
+
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -183,6 +194,17 @@ public class ImportItem extends AppCompatActivity {
             btnSubmit.setLayoutParams(btnParams);
 
             btnSubmit.setOnClickListener(v -> {
+                Spinner importPlace = findViewById(R.id.import_place);
+                String place = importPlace.getSelectedItem() != null
+                        ? importPlace.getSelectedItem().toString()
+                        : "";
+
+                // 檢查是否還在預設「進貨地點」
+                if ("進貨地點".equals(place) || place.isEmpty()) {
+                    Toast.makeText(this, "請選擇進貨地點", Toast.LENGTH_SHORT).show();
+                    return; // 不往下做
+                }
+
                 List<String> summary = new ArrayList<>();
                 boolean hasValidItem = false;
 
@@ -190,7 +212,6 @@ public class ImportItem extends AppCompatActivity {
                 String importDate = LocalDate.now().toString();
 
                 // 🛒 抓取供應商名稱
-
                 for (int i = 0; i < selectedItemInputContainer.getChildCount(); i++) {
                     View view = selectedItemInputContainer.getChildAt(i);
                     if (view instanceof LinearLayout) {
@@ -211,7 +232,7 @@ public class ImportItem extends AppCompatActivity {
                                 summary.add(product + " - " + amountWithUnit);
 
                                 // ✅ 寫入資料庫
-                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, this, success -> {
+                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, place, this, success -> {
                                     if (!success) {
                                         Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
                                     }

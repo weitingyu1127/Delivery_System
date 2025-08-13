@@ -9,9 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 public class DataSource {
-//    public static final String[] UNITS = {
-//            "公克", "公斤", "頓"
-//    };
 
     // 產品
     private static Map<String, VendorInfo> vendorProductMap = new LinkedHashMap<>();
