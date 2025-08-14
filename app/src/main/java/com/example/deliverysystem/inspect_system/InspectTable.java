@@ -44,6 +44,7 @@ import java.util.Set;
 
 public class InspectTable extends BaseActivity {
     private String type;
+    private String currentPlace = "本廠";
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         type = getIntent().getStringExtra("type");
@@ -83,21 +84,40 @@ public class InspectTable extends BaseActivity {
         searchBtn.setOnClickListener(v -> {
             Spinner vendorSp    = findViewById(R.id.spinnerVendor);
             Spinner productSp   = findViewById(R.id.spinnerProduct);
-            Spinner placeSp     = findViewById(R.id.spinnerPlace);
             Spinner inspectorSp = findViewById(R.id.spinnerInspector);
             Spinner confirmerSp = findViewById(R.id.spinnerConfirmPerson);
             TextView dateTv     = findViewById(R.id.date_text);
 
             String vendor    = vendorSp.getSelectedItemPosition()    == 0 ? "" : vendorSp.getSelectedItem().toString();
             String product   = productSp.getSelectedItemPosition()   == 0 ? "" : productSp.getSelectedItem().toString();
-            String place     = placeSp.getSelectedItemPosition()     == 0 ? "" : placeSp.getSelectedItem().toString(); // ✅ 改名
             String inspector = inspectorSp.getSelectedItemPosition() == 0 ? "" : inspectorSp.getSelectedItem().toString();
             String confirmer = confirmerSp.getSelectedItemPosition() == 0 ? "" : confirmerSp.getSelectedItem().toString();
             String date      = "選擇進貨日期".contentEquals(dateTv.getText()) ? "" : dateTv.getText().toString();
 
-            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date, place); // ✅ 多帶 place
+            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date, currentPlace);
         });
-        getInspectData();
+
+        // 綁定三個地點按鈕
+        Button btnA = findViewById(R.id.btn_place_A);
+        Button btnB = findViewById(R.id.btn_place_B);
+        Button btnC = findViewById(R.id.btn_place_C);
+
+        View.OnClickListener placeClick = v -> {
+            if (v.getId() == R.id.btn_place_A) {
+                selectPlace("本廠", btnA, btnB, btnC);
+            } else if (v.getId() == R.id.btn_place_B) {
+                selectPlace("倉庫", btnB, btnA, btnC);
+            } else if (v.getId() == R.id.btn_place_C) {
+                selectPlace("線西", btnC, btnA, btnB);
+            }
+        };
+        btnA.setOnClickListener(placeClick);
+        btnB.setOnClickListener(placeClick);
+        btnC.setOnClickListener(placeClick);
+
+        // 預設選 A（本廠）並立即查詢顯示
+        selectPlace("本廠", btnA, btnB, btnC);
+
     }
 
     protected void onResume() {
@@ -105,7 +125,7 @@ public class InspectTable extends BaseActivity {
         getInspectData();
     }
     private void getInspectData() {
-        ConnectDB.getInspectRecords(type, inspectList -> {
+        ConnectDB.getInspectRecords(type, currentPlace, inspectList -> {
             DataSource.setInspectRecords(inspectList);
             runOnUiThread(this::onInspectDataReady);
         });
@@ -182,7 +202,6 @@ public class InspectTable extends BaseActivity {
     private void setupSpinner(String type) {
         Spinner vendorSpinner = findViewById(R.id.spinnerVendor);
         Spinner productSpinner = findViewById(R.id.spinnerProduct);
-        Spinner placeSpinner = findViewById(R.id.spinnerPlace);
 
         // ✅ 建立 vendor 清單，僅取指定 type 的 vendor
         List<String> vendorList = new ArrayList<>();
@@ -246,21 +265,6 @@ public class InspectTable extends BaseActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        List<String> placeList = Arrays.asList("進貨地點", "線西", "倉庫", "本廠");
-        ArrayAdapter<String> placeAdapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, placeList
-        );
-        placeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        placeSpinner.setAdapter(placeAdapter);
-        placeSpinner.setSelection(0, false); // 預設顯示提示文字
-
-        placeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                // 這裡若需要即時反應可以加邏輯；通常送出時再檢查是否為「進貨地點」
-//                 String place = placeSpinner.getSelectedItem().toString();
-            }
-            @Override public void onNothingSelected(AdapterView<?> parent) {}
-        });
         // 其他 spinner 初始化
         setupSpinnerData(R.id.spinnerInspector, DataSource.getInspector(), "", "inspect");
         setupSpinnerData(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "", "confirm");
@@ -311,6 +315,8 @@ public class InspectTable extends BaseActivity {
         LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
         LinearLayout rowLayout = new LinearLayout(this);
+        rowLayout.setBaselineAligned(false);
+        rowLayout.setGravity(Gravity.CENTER_VERTICAL);
         rowLayout.setOrientation(LinearLayout.HORIZONTAL);
         rowLayout.setPadding(20, 10, 20, 10);
         rowLayout.setLayoutParams(new LinearLayout.LayoutParams(
@@ -471,6 +477,7 @@ public class InspectTable extends BaseActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         eyeIconParams.setMargins(10, 0, 10, 0);
+        eyeIconParams.gravity = Gravity.CENTER_VERTICAL;
         eyeIcon.setLayoutParams(eyeIconParams);
 
         eyeIcon.setOnClickListener(v -> {
@@ -515,8 +522,9 @@ public class InspectTable extends BaseActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         deleteIconParams.setMargins(10, 0, 10, 0);
+        eyeIconParams.gravity = Gravity.CENTER_VERTICAL;
         deleteIcon.setLayoutParams(deleteIconParams);
-
+        rowLayout.addView(deleteIcon);
         deleteIcon.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("刪除確認")
@@ -524,10 +532,8 @@ public class InspectTable extends BaseActivity {
                     .setPositiveButton("確認", (dialog, which) -> {
                         ConnectDB.deleteImportRecordById(importId, success -> {
                             if (success) {
-                                runOnUiThread(() ->
-                                        Toast.makeText(this, "刪除成功", Toast.LENGTH_SHORT).show()
-                                );
-                                // 這裡可以額外刷新畫面或移除該列
+                                Toast.makeText(this, "刪除成功", Toast.LENGTH_SHORT).show();
+                                getInspectData();
                             } else {
                                 runOnUiThread(() ->
                                         Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show()
@@ -588,13 +594,15 @@ public class InspectTable extends BaseActivity {
 
     // 根據圖示是否存在決定用 ImageView 或 TextView 顯示
     private View createIconOrTextCell(String tag, String value, int iconRes, int widthDp, int textSize, int padding) {
-        int widthPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
-        int heightPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 36, getResources().getDisplayMetrics()); // 固定高度
+        int widthPx  = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
+        int heightPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 36,    getResources().getDisplayMetrics());
 
         if (iconRes != 0) {
             ImageView icon = new ImageView(this);
             icon.setImageResource(iconRes);
-            icon.setLayoutParams(new LinearLayout.LayoutParams(widthPx, heightPx));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(widthPx, heightPx);
+            lp.gravity = Gravity.CENTER_VERTICAL;          // 👈 讓圖示在列中垂直置中
+            icon.setLayoutParams(lp);
             icon.setPadding(padding, padding, padding, padding);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
             icon.setAdjustViewBounds(true);
@@ -604,4 +612,27 @@ public class InspectTable extends BaseActivity {
             return createCell(tag, value, widthDp, textSize, padding);
         }
     }
+
+    private void selectPlace(String place, Button selected, Button other1, Button other2) {
+        currentPlace = place;
+        Log.d("currentPlace", currentPlace);
+        // UI 樣式
+        styleSelected(selected);
+        styleUnselected(other1);
+        styleUnselected(other2);
+
+        // 依目前 currentPlace 重新抓資料
+        getInspectData();
+    }
+
+    private void styleSelected(Button btn) {
+        btn.setBackgroundResource(R.drawable.btn_orange);
+        btn.setTextColor(getResources().getColor(android.R.color.white));
+    }
+
+    private void styleUnselected(Button btn) {
+        btn.setBackgroundResource(R.drawable.btn_white); // 你的未選樣式
+        btn.setTextColor(getResources().getColor(android.R.color.black));
+    }
+
 }

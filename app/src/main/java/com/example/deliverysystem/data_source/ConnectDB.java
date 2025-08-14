@@ -33,39 +33,6 @@ import java.util.function.Consumer;
 public class ConnectDB {
 
     // === 員工資料：inspector / confirmPerson ===
-//    public static void getEmployees(String type, Runnable callback) {
-//        FirebaseFirestore db = FirebaseFirestore.getInstance();
-//
-//        // 根據 type 設定查詢條件
-//        boolean isConfirm = "confirmPerson".equals(type);
-//
-//        db.collection("employees")
-//                .whereEqualTo("employee_authority", isConfirm)
-//                .get()
-//                .addOnSuccessListener(queryDocumentSnapshots -> {
-//                    List<String> nameList = new ArrayList<>();
-//                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-//                        String name = doc.getString("employee_name");
-//                        if (name != null) {
-//                            nameList.add(name);
-//                        }
-//                    }
-//
-//                    if (!isConfirm) {
-//                        DataSource.setInspectors(nameList);
-//                        Log.d("inspector", nameList.toString());
-//                    } else {
-//                        DataSource.setConfirmPersons(nameList);
-//                        Log.d("confirmPerson", nameList.toString());
-//                    }
-//
-//                    if (callback != null) callback.run();
-//                })
-//                .addOnFailureListener(e -> {
-//                    Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
-//                    if (callback != null) callback.run();
-//                });
-//    }
     public static void getEmployees(String type, Runnable callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         boolean isConfirm = "confirmPerson".equals(type);
@@ -93,10 +60,8 @@ public class ConnectDB {
 
                     if (isConfirm) {
                         DataSource.setConfirmPersons(list);   // List<Map<String,String>>
-                        Log.d("confirmPerson", list.toString());
                     } else {
                         DataSource.setInspectors(list);       // List<Map<String,String>>
-                        Log.d("inspector", list.toString());
                     }
 
                     if (callback != null) callback.run();
@@ -126,8 +91,6 @@ public class ConnectDB {
 
                             VendorInfo info = new VendorInfo(industry, type, productList);
                             vendorMap.put(vendor, info);
-                            Log.d("VendorData", "Vendor: " + vendor + ", Industry: " + industry +
-                                    ", Type: " + type + ", Products: " + productList);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -151,7 +114,6 @@ public class ConnectDB {
                         if (password != null) {
                             passwordList.add(password);
                         }
-                        Log.d("password", password);
                     }
                     callback.accept(passwordList);
                 })
@@ -162,12 +124,13 @@ public class ConnectDB {
     }
 
     // === 匯入資料紀錄 ===
-    public static void getInspectRecords(String type, Consumer<List<InspectRecord>> callback) {
+    public static void getInspectRecords(String type, String placeValue, Consumer<List<InspectRecord>> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         List<InspectRecord> records = new ArrayList<>();
 
         db.collection("import_records")
                 .whereEqualTo("type", type)
+                .whereEqualTo("place", placeValue)
                 .orderBy("import_date", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
@@ -208,7 +171,6 @@ public class ConnectDB {
                                     inspectorStaff, confirmStaff, "", ""
                             );
                         }
-
                         records.add(record);
                     }
                     callback.accept(records);
@@ -254,7 +216,6 @@ public class ConnectDB {
 
     public static void deleteImportRecordById(String importId, Consumer<Boolean> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        Log.d("import_id",importId);
         db.collection("import_records").document(importId)
                 .delete()
                 .addOnSuccessListener(aVoid -> {
@@ -414,7 +375,6 @@ public class ConnectDB {
                             doc.getString("degree")
                     );
                     records.add(record);
-                    Log.d("records111", records.toString());
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
