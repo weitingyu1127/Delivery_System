@@ -337,33 +337,10 @@ public class InspectTable extends BaseActivity {
         String noteText = (note == null || note.trim().isEmpty() || note.equalsIgnoreCase("null")) ? "" : note;
         TextView tableNote = createCell("note",noteText, 200, textSize, padding);
         TextView tablePlace = createCell("place",place, 80, textSize, padding);
-        // 加入所有欄位到該列
-        rowLayout.addView(tableDate);
-        rowLayout.addView(tableVendor);
-        rowLayout.addView(tableItem);
-        rowLayout.addView(tableSpec);
-        rowLayout.addView(tablePackage);
-        if("原料".equals(type)){
-            View tableOdor = createIconOrTextCell("odor", odor, toCheckIconRes(odor), 80, textSize, padding);
-            rowLayout.addView(tableOdor);
-        }
-        rowLayout.addView(tableVector);
-        if("原料".equals(type)){
-            String degreeText = (degree == null || degree.trim().isEmpty() || degree.equalsIgnoreCase("null")) ? "" : degree;
-            TextView tableDegree = createCell("degree",degreeText, 110, textSize, padding);
-            rowLayout.addView(tableDegree);
-        }
-        rowLayout.addView(tableLabel);
-        rowLayout.addView(tableAmount);
-        rowLayout.addView(tableValidDate);
-        rowLayout.addView(tablePallet);
-        rowLayout.addView(tableCoa);
-        rowLayout.addView(tableNote);
-        rowLayout.addView(tablePlace);
         View inspectorView;
         if (inspector == null || inspector.trim().isEmpty() || inspector.equalsIgnoreCase("null")) {
             Button inspectorBtn = new Button(this);
-             inspectorBtn.setText("驗收");
+            inspectorBtn.setText("驗收");
             inspectorBtn.setBackgroundResource(R.drawable.btn_blue);
             inspectorBtn.setTextSize(textSize);
             inspectorBtn.setTextColor(ContextCompat.getColor(this, R.color.white));
@@ -391,6 +368,30 @@ public class InspectTable extends BaseActivity {
         } else {
             inspectorView = createCell("inspector", inspector, 100, textSize, padding);
         }
+        // 加入所有欄位到該列
+        rowLayout.addView(tableDate);
+        rowLayout.addView(tableVendor);
+        rowLayout.addView(tableItem);
+        rowLayout.addView(inspectorView);
+        rowLayout.addView(tableSpec);
+        rowLayout.addView(tablePackage);
+        if("原料".equals(type)){
+            View tableOdor = createIconOrTextCell("odor", odor, toCheckIconRes(odor), 80, textSize, padding);
+            rowLayout.addView(tableOdor);
+        }
+        rowLayout.addView(tableVector);
+        if("原料".equals(type)){
+            String degreeText = (degree == null || degree.trim().isEmpty() || degree.equalsIgnoreCase("null")) ? "" : degree;
+            TextView tableDegree = createCell("degree",degreeText, 110, textSize, padding);
+            rowLayout.addView(tableDegree);
+        }
+        rowLayout.addView(tableLabel);
+        rowLayout.addView(tableAmount);
+        rowLayout.addView(tableValidDate);
+        rowLayout.addView(tablePallet);
+        rowLayout.addView(tableCoa);
+        rowLayout.addView(tableNote);
+        rowLayout.addView(tablePlace);
 
         View confirmView;
         if (confirmed == null || confirmed.trim().isEmpty() || confirmed.equalsIgnoreCase("null")) {
@@ -456,7 +457,6 @@ public class InspectTable extends BaseActivity {
             confirmView = createCell("confirmed",confirmed, 100, textSize, padding);
         }
 
-        rowLayout.addView(inspectorView);
         rowLayout.addView(confirmView);
 
         // 加入 icon（eye icon）
@@ -465,13 +465,13 @@ public class InspectTable extends BaseActivity {
         eyeIcon.setContentDescription("檢視細節");
         eyeIcon.setPadding(padding, padding, padding, padding);
 
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams eyeIconParams = new LinearLayout.LayoutParams(
                 (int) TypedValue.applyDimension(
                         TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics()),
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        iconParams.setMargins(10, 0, 10, 0);
-        eyeIcon.setLayoutParams(iconParams);
+        eyeIconParams.setMargins(10, 0, 10, 0);
+        eyeIcon.setLayoutParams(eyeIconParams);
 
         eyeIcon.setOnClickListener(v -> {
             Intent intent = new Intent(InspectTable.this, InspectDetail.class);
@@ -502,8 +502,42 @@ public class InspectTable extends BaseActivity {
             intent.putExtra("staff", "confirm");
             startActivity(intent);
         });
-
         rowLayout.addView(eyeIcon);
+
+        ImageView deleteIcon = new ImageView(this);
+        deleteIcon.setImageResource(R.drawable.ic_delete);
+        deleteIcon.setContentDescription("刪除");
+        deleteIcon.setPadding(padding, padding, padding, padding);
+
+        LinearLayout.LayoutParams deleteIconParams = new LinearLayout.LayoutParams(
+                (int) TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics()),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        deleteIconParams.setMargins(10, 0, 10, 0);
+        deleteIcon.setLayoutParams(deleteIconParams);
+
+        deleteIcon.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("刪除確認")
+                    .setMessage("進貨資料一併刪除")
+                    .setPositiveButton("確認", (dialog, which) -> {
+                        ConnectDB.deleteImportRecordById(importId, success -> {
+                            if (success) {
+                                runOnUiThread(() ->
+                                        Toast.makeText(this, "刪除成功", Toast.LENGTH_SHORT).show()
+                                );
+                                // 這裡可以額外刷新畫面或移除該列
+                            } else {
+                                runOnUiThread(() ->
+                                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show()
+                                );
+                            }
+                        });
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+        });
 
         // 建立分隔線
         View divider = new View(this);

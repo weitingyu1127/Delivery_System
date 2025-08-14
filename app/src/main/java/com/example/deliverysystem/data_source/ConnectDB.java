@@ -316,7 +316,7 @@ public class ConnectDB {
                 });
     }
 
-    public static void updateInspectRecord(String type, String importId, String spec, String validDate,
+    public static void updateInspectRecord(String type, String importId, String amountCombined, String spec, String validDate,
                                            boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                            boolean packageLabel, boolean pallet, boolean coa,
                                            String note, String imageFileName, String inspector, String confirmer,
@@ -325,6 +325,7 @@ public class ConnectDB {
 
         // 要更新的欄位內容
         Map<String, Object> updateData = new HashMap<>();
+        updateData.put("quantity", amountCombined);
         updateData.put("spec", spec);
         updateData.put("validDate", validDate);
         updateData.put("package_complete", packageComplete ? "1" : "0");
