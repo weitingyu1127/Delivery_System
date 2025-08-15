@@ -266,7 +266,7 @@
                     <TextView android:layout_width="80dp" android:layout_height="wrap_content"
                         android:text="無異味" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
                     <TextView android:layout_width="80dp" android:layout_height="wrap_content"
-                        android:text="病媒" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                        android:text="無病媒" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
                     <TextView android:layout_width="110dp" android:layout_height="wrap_content"
                         android:text="溫度°C" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
                     <TextView android:layout_width="100dp" android:layout_height="wrap_content"
