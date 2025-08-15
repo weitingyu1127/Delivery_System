@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 
 import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -26,6 +27,15 @@ import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.function.Consumer;
@@ -149,7 +159,17 @@ public class ConnectDB {
                         String coa             = doc.getString("coa");
                         String note            = doc.getString("note");
                         String place            = doc.getString("place");
-                        String picture         = doc.getString("image_name");
+//                        String picture         = doc.getString("image_name");
+                        Object imgObj = doc.get("image_name");
+                        List<String> imageNames = new ArrayList<>();
+                        if (imgObj instanceof List<?>) {
+                            for (Object o : (List<?>) imgObj) {
+                                if (o != null) imageNames.add(String.valueOf(o));
+                            }
+                        } else if (imgObj instanceof String) {
+                            String s = (String) imgObj;
+                            if (!s.trim().isEmpty()) imageNames.add(s);
+                        }
                         String inspectorStaff  = doc.getString("inspector_staff");
                         String confirmStaff    = doc.getString("confirm_staff");
 
@@ -160,14 +180,14 @@ public class ConnectDB {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, place, picture,
+                                    quantity, validDate, palletComplete, coa, note, place, imageNames,
                                     inspectorStaff, confirmStaff, odor, degree
                             );
                         } else {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, place, picture,
+                                    quantity, validDate, palletComplete, coa, note, place, imageNames,
                                     inspectorStaff, confirmStaff, "", ""
                             );
                         }
@@ -280,7 +300,7 @@ public class ConnectDB {
     public static void updateInspectRecord(String type, String importId, String amountCombined, String spec, String validDate,
                                            boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                            boolean packageLabel, boolean pallet, boolean coa,
-                                           String note, String imageFileName, String inspector, String confirmer,
+                                           String note, List<String> imageFileName, String inspector, String confirmer,
                                            Consumer<Boolean> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
@@ -353,6 +373,21 @@ public class ConnectDB {
             List<InspectRecord> records = new ArrayList<>();
             for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                 try {
+                    // --- 兼容 image_name = List 或 String ---
+                    Object imgObj = doc.get("image_name");
+                    List<String> imageNames = new ArrayList<>();
+                    if (imgObj instanceof List) {
+                        //noinspection unchecked
+                        imageNames.addAll((List<String>) imgObj);
+                    } else if (imgObj instanceof String) {
+                        String s = (String) imgObj;
+                        if (s != null && !s.trim().isEmpty()) imageNames.add(s);
+                    }
+
+                    // 原料才有異味/溫度；物料給空字串即可
+                    String odor   = "原料".equals(type) ? doc.getString("odor")   : "";
+                    String degree = "原料".equals(type) ? doc.getString("degree") : "";
+
                     InspectRecord record = new InspectRecord(
                             doc.getString("import_id"),
                             doc.getString("import_date"),
@@ -368,12 +403,14 @@ public class ConnectDB {
                             doc.getString("coa"),
                             doc.getString("note"),
                             doc.getString("place"),
-                            doc.getString("image_name"),
+//                            doc.getString("image_name"),
+                            imageNames, // <-- 這裡改成 List<String>
                             doc.getString("inspector_staff"),
                             doc.getString("confirm_staff"),
-                            doc.getString("odor"),
-                            doc.getString("degree")
+                            odor,
+                            degree
                     );
+
                     records.add(record);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -384,6 +421,11 @@ public class ConnectDB {
             e.printStackTrace();
             callback.accept(new ArrayList<>());
         });
+//            callback.accept(records);
+//        }).addOnFailureListener(e -> {
+//            e.printStackTrace();
+//            callback.accept(new ArrayList<>());
+//        });
     }
 
     // 發出 HTTP GET 請求到 PHP API，取得指定欄位的 distinct 值
@@ -698,4 +740,125 @@ public class ConnectDB {
             callback.accept(null);
         });
     }
+
+    public static void imageDelete(List<String> toBeDeletedImages) {
+        FirebaseStorage storage = FirebaseStorage.getInstance();
+
+        for (String url : toBeDeletedImages) {
+            storage.getReferenceFromUrl(url)
+                    .delete()
+                    .addOnSuccessListener(aVoid ->
+                            Log.d("FirebaseStorage", "已刪除：" + url)
+                    )
+                    .addOnFailureListener(e ->
+                            Log.e("FirebaseStorage", "刪除失敗：" + url + "，原因：" + e.getMessage())
+                    );
+        }
+        toBeDeletedImages.clear();
+    }
+
+    public interface ExportCallback {
+        void onResult(boolean success, String message);
+    }
+
+    public static String changeFormat(Map<String, Object> record, String key) {
+        if (!record.containsKey(key) || record.get(key) == null) {
+            return "缺";
+        }
+        String value = String.valueOf(record.get(key)).trim();
+        if ("0".equals(value)) return "無";
+        if ("1".equals(value)) return "有";
+        return value;
+    }
+
+    public static void exportDataToExcel(Context context, String startDate, String endDate, ExportCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+        Date start, end;
+        try {
+            start = sdf.parse(startDate);
+            end = sdf.parse(endDate);
+        } catch (ParseException e) {
+            callback.onResult(false, "日期格式錯誤");
+            return;
+        }
+
+        db.collection("import_records")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, Object>> filteredList = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String dateStr = doc.getString("import_date");
+                        try {
+                            Date docDate = sdf.parse(dateStr);
+                            if (docDate != null && !docDate.before(start) && !docDate.after(end)) {
+                                filteredList.add(doc.getData());
+                            }
+                        } catch (ParseException ignored) {}
+                    }
+
+                    if (filteredList.isEmpty()) {
+                        callback.onResult(false, "沒有符合日期的資料");
+                        return;
+                    }
+
+                    try {
+                        Workbook workbook = new XSSFWorkbook();
+                        Sheet sheet = workbook.createSheet("資料");
+
+                        String[] columns = {"型態", "進貨日期", "廠商", "品項", "進貨數量", "規格", "外包裝完整", "無異味", "無病媒", "溫度°C", "包材標示", "有效日期批號", "棧板", "COA", "備註", "進貨地點", "驗收人員", "確認人員"};
+
+                        // 標題列
+                        Row header = sheet.createRow(0);
+                        for (int i = 0; i < columns.length; i++) {
+                            header.createCell(i).setCellValue(columns[i]);
+                        }
+
+                        // 資料列
+                        int rowNum = 1;
+                        for (Map<String, Object> record : filteredList) {
+                            Row row = sheet.createRow(rowNum++);
+                            row.createCell(0).setCellValue(String.valueOf(record.getOrDefault("type", "")));
+                            row.createCell(1).setCellValue(String.valueOf(record.getOrDefault("import_date", "")));
+                            row.createCell(2).setCellValue(String.valueOf(record.getOrDefault("vendor", "")));
+                            row.createCell(3).setCellValue(String.valueOf(record.getOrDefault("product", "")));
+                            row.createCell(4).setCellValue(String.valueOf(record.getOrDefault("quantity", "")));
+                            row.createCell(5).setCellValue(String.valueOf(record.getOrDefault("spec", "")));
+                            row.createCell(6).setCellValue(changeFormat(record, "package_complete"));
+                            row.createCell(7).setCellValue(changeFormat(record, "odor"));
+                            row.createCell(8).setCellValue(changeFormat(record, "vector_complete"));
+                            row.createCell(9).setCellValue(String.valueOf(record.getOrDefault("degree", "")));
+                            row.createCell(10).setCellValue(changeFormat(record, "package_label"));
+                            row.createCell(11).setCellValue(String.valueOf(record.getOrDefault("validDate", "")));
+                            row.createCell(12).setCellValue(changeFormat(record, "pallet_complete"));
+                            row.createCell(13).setCellValue(changeFormat(record, "coa"));
+                            row.createCell(14).setCellValue(String.valueOf(record.getOrDefault("note", "")));
+                            row.createCell(15).setCellValue(String.valueOf(record.getOrDefault("place", "")));
+                            row.createCell(16).setCellValue(String.valueOf(record.getOrDefault("inspector_staff", "")));
+                            row.createCell(17).setCellValue(String.valueOf(record.getOrDefault("confirm_staff", "")));
+                        }
+
+                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        if (!downloadsDir.exists()) {
+                            downloadsDir.mkdirs();
+                        }
+
+                        String fileName = startDate + " ~ " + endDate + ".xlsx";
+                        File file = new File(downloadsDir, fileName);
+                        FileOutputStream fos = new FileOutputStream(file);
+                        workbook.write(fos);
+                        fos.close();
+                        workbook.close();
+
+                        callback.onResult(true, "匯出成功，檔案已儲存：" + file.getAbsolutePath());
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        callback.onResult(false, "匯出失敗：" + e.getMessage());
+                    }
+                })
+                .addOnFailureListener(e -> callback.onResult(false, "查詢失敗：" + e.getMessage()));
+    }
+
 }

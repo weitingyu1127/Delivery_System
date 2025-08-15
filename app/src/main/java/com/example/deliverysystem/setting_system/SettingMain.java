@@ -1,6 +1,7 @@
 package com.example.deliverysystem.setting_system;
 
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -14,8 +15,10 @@ import com.example.deliverysystem.data_source.ConnectDB;
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 
+import java.util.Calendar;
+
 public class SettingMain extends BaseActivity {
-    LinearLayout btnSupplier, btnEmployees, btnPassword;
+    LinearLayout btnSupplier, btnEmployees, btnPassword, btnExport;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,7 +28,7 @@ public class SettingMain extends BaseActivity {
         btnSupplier = findViewById(R.id.supplier);
         btnEmployees = findViewById(R.id.employees);
         btnPassword = findViewById(R.id.password);
-
+        btnExport = findViewById(R.id.export);
         btnSupplier.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -41,7 +44,7 @@ public class SettingMain extends BaseActivity {
                 startActivity(intent);
             }
         });
-//
+
         btnPassword.setOnClickListener(view -> {
             View dialogView = getLayoutInflater().inflate(R.layout.dialog_update_password, null);
             EditText oldPassword = dialogView.findViewById(R.id.oldPassword);
@@ -77,6 +80,61 @@ public class SettingMain extends BaseActivity {
                             }
                         });
                     }
+                });
+            });
+
+            dialog.show();
+        });
+
+        btnExport.setOnClickListener(v -> {
+            View dateDialogView = getLayoutInflater().inflate(R.layout.dialog_date_range_export, null);
+            EditText startDateInput = dateDialogView.findViewById(R.id.startDate);
+            EditText endDateInput = dateDialogView.findViewById(R.id.endDate);
+
+            // 日期選擇器
+            View.OnClickListener dateClickListener = view -> {
+                final EditText target = (EditText) view;
+                Calendar calendar = Calendar.getInstance();
+                DatePickerDialog datePicker = new DatePickerDialog(
+                        SettingMain.this,
+                        (view1, year, month, dayOfMonth) -> {
+                            String dateStr = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth);
+                            target.setText(dateStr);
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                );
+                datePicker.show();
+            };
+
+            startDateInput.setOnClickListener(dateClickListener);
+            endDateInput.setOnClickListener(dateClickListener);
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("選擇日期區間")
+                    .setView(dateDialogView)
+                    .setPositiveButton("匯出", null)
+                    .setNegativeButton("取消", null);
+
+            AlertDialog dialog = builder.create();
+
+            dialog.setOnShowListener(dialogInterface -> {
+                Button exportBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                exportBtn.setOnClickListener(view -> {
+                    String startDate = startDateInput.getText().toString().trim();
+                    String endDate = endDateInput.getText().toString().trim();
+
+                    if (startDate.isEmpty() || endDate.isEmpty()) {
+                        Toast.makeText(this, "請選擇開始與結束日期", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // 呼叫匯出功能
+                    ConnectDB.exportDataToExcel(this, startDate, endDate, (success, message) -> {
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                        if (success) dialog.dismiss();
+                    });
                 });
             });
 

@@ -151,7 +151,8 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-                        record.getPicture(),
+//                        record.getPicture(),
+                        record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
                         record.getOdor(),         // ✅ 新增：異味 (Boolean)
@@ -174,7 +175,8 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-                        record.getPicture(),
+//                        record.getPicture(),
+                        record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
                         null,
@@ -310,7 +312,7 @@ public class InspectTable extends BaseActivity {
         }
     }
     private void addTableRow(String importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
-                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, String picture, String inspector,
+                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, List<String> picture, String inspector,
                              String confirmed, String odor, String degree, String type) {
         LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
@@ -442,7 +444,8 @@ public class InspectTable extends BaseActivity {
                                 intent.putExtra("COA", COA);
                                 intent.putExtra("note", note);
                                 intent.putExtra("place", place);
-                                intent.putExtra("picture", picture);
+//                                intent.putExtra("picture", picture);
+                                intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
                                 intent.putExtra("inspector", inspector);
                                 intent.putExtra("confirmed", confirmed);
                                 if ("原料".equals(type)) {
@@ -498,7 +501,8 @@ public class InspectTable extends BaseActivity {
             intent.putExtra("COA", COA);
             intent.putExtra("note", note);
             intent.putExtra("place", place);
-            intent.putExtra("picture", picture);
+//            intent.putExtra("picture", picture);
+            intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
             intent.putExtra("inspector", inspector);
             intent.putExtra("confirmed", confirmed);
             if ("原料".equals(type)) {
