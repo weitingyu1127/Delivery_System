@@ -444,7 +444,6 @@ public class InspectTable extends BaseActivity {
                                 intent.putExtra("COA", COA);
                                 intent.putExtra("note", note);
                                 intent.putExtra("place", place);
-//                                intent.putExtra("picture", picture);
                                 intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
                                 intent.putExtra("inspector", inspector);
                                 intent.putExtra("confirmed", confirmed);
@@ -619,7 +618,6 @@ public class InspectTable extends BaseActivity {
 
     private void selectPlace(String place, Button selected, Button other1, Button other2) {
         currentPlace = place;
-        Log.d("currentPlace", currentPlace);
         // UI 樣式
         styleSelected(selected);
         styleUnselected(other1);
@@ -638,5 +636,4 @@ public class InspectTable extends BaseActivity {
         btn.setBackgroundResource(R.drawable.btn_white); // 你的未選樣式
         btn.setTextColor(getResources().getColor(android.R.color.black));
     }
-
 }

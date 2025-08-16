@@ -21,6 +21,8 @@ import com.example.deliverysystem.import_system.ImportTable;
 import com.example.deliverysystem.inspect_system.InspectMain;
 import com.example.deliverysystem.inspect_system.InspectTable;
 import com.example.deliverysystem.setting_system.SettingMain;
+import com.example.deliverysystem.storage.StorageMain;
+import com.google.android.gms.auth.api.signin.internal.Storage;
 import com.google.android.material.navigation.NavigationView;
 
 public class BaseActivity extends AppCompatActivity {
@@ -79,6 +81,11 @@ public class BaseActivity extends AppCompatActivity {
                         })
                         .setNegativeButton("取消", null)
                         .show();
+            }
+            if (id == R.id.nav_storage_page) {
+                if (!(this instanceof StorageMain)) {
+                    startActivity(new Intent(this, StorageMain.class));
+                }
             }
             drawerLayout.closeDrawer(GravityCompat.START);
             return true;

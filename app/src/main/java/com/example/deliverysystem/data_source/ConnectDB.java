@@ -861,4 +861,66 @@ public class ConnectDB {
                 .addOnFailureListener(e -> callback.onResult(false, "查詢失敗：" + e.getMessage()));
     }
 
+    public static void addStorage(Context context, String type, String vendorName, String product, int amount, String place) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        DocumentReference factoryRef = db.collection("storage").document(place);
+        CollectionReference rawMaterialRef = factoryRef.collection(type);
+
+        Map<String, Object> newData = new HashMap<>();
+        newData.put("vendorName", vendorName);
+        newData.put("product", product);
+        newData.put("amount", amount);
+
+        // 不要 Toast，只負責寫資料
+        rawMaterialRef.add(newData)
+                .addOnSuccessListener(docRef -> {
+                    Log.d("Firestore", "新增成功，ID: " + docRef.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "新增失敗: " + e.getMessage(), e);
+                });
+    }
+
+
+    public static void getStorage(String type, String place, Consumer<List<Map<String, Object>>> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("storage")
+                .document(place)
+                .collection(type)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, Object>> resultList = new ArrayList<>();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        Map<String, Object> data = doc.getData();
+                        if (data != null) {
+                            data.put("id", doc.getId());
+                            data.put("type", type);
+                            resultList.add(data);
+                        }
+                    }
+                    callback.accept(resultList);
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(new ArrayList<>()); // 出錯回傳空列表
+                });
+    }
+
+    public static void updateQuantity(String place, String type, String id, int newAmount) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("storage")
+                .document(place)          // 本廠 / 外廠
+                .collection(type)         // 原料 / 成品
+                .document(id)             // 自動生成的 id
+                .update("amount", newAmount)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("Firestore", "數量已更新，place: " + place + ", type: " + type + ", id: " + id + " → 新數量: " + newAmount);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "更新失敗，place: " + place + ", type: " + type + ", id: " + id, e);
+                });
+    }
 }

@@ -235,13 +235,15 @@ public class ImportItem extends AppCompatActivity {
                                 ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, place, this, success -> {
                                     if (!success) {
                                         Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
+                                    }else{
+                                        ConnectDB.addStorage(this, type, vendorName, product, amount, place);
                                     }
                                 });
                             }
                         }
                     }
                 }
-
+                Toast.makeText(this, "所有商品已新增完成", Toast.LENGTH_SHORT).show();
                 if (!hasValidItem) {
                     Toast.makeText(this, "請至少填寫一項商品的數量", Toast.LENGTH_SHORT).show();
                     return;

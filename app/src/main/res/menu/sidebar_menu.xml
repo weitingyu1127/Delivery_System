@@ -11,6 +11,10 @@
         android:icon="@drawable/ic_checklist"
         />
     <item
+        android:id="@+id/nav_storage_page"
+        android:title="庫存紀錄"
+        android:icon="@drawable/ic_storage" />
+    <item
         android:id="@+id/nav_setting"
         android:title="設定"
         android:icon="@drawable/ic_setting_white" />

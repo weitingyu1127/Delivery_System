@@ -13,10 +13,11 @@ import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.import_system.ImportMain;
 import com.example.deliverysystem.inspect_system.InspectMain;
 import com.example.deliverysystem.setting_system.SettingMain;
+import com.example.deliverysystem.storage.StorageMain;
 
 public class Main extends BaseActivity {
 
-    LinearLayout btnImport, btnInspect, btnSetting;
+    LinearLayout btnImport, btnInspect, btnSetting, btnStorage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,6 +26,7 @@ public class Main extends BaseActivity {
 
         btnImport = findViewById(R.id.import_page);
         btnInspect = findViewById(R.id.inspect_page);
+        btnStorage = findViewById(R.id.storage_page);
         btnSetting = findViewById(R.id.setting_page);
 
         btnImport.setOnClickListener(new View.OnClickListener() {
@@ -43,6 +45,13 @@ public class Main extends BaseActivity {
             }
         });
 
+        btnStorage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(Main.this, StorageMain.class);
+                startActivity(intent);
+            }
+        });
         btnSetting.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
