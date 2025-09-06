@@ -128,7 +128,7 @@ public class ImportItem extends AppCompatActivity {
         qtyInput.setText("0");
         qtyInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         qtyInput.setGravity(Gravity.CENTER);
-        qtyInput.setWidth((int)(50*dp));
+        qtyInput.setWidth((int)(60*dp));
         qtyInput.setHeight((int)(40*dp));
         qtyInput.setBackgroundColor(Color.parseColor("#DDDDDD"));
         qtyInput.setPadding((int)(10*dp), 0, (int)(10*dp), 0);
@@ -141,11 +141,7 @@ public class ImportItem extends AppCompatActivity {
         row.addView(btnPlus);
 
         Spinner unitSpinner = new Spinner(this);
-        ArrayAdapter<String> unitAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item,
-                new String[]{"個","箱","桶","包","罐","台","袋","張","捲","件","片","盒","櫃"});
-        unitAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        unitSpinner.setAdapter(unitAdapter);
+        DataSource.setupUnitSpinner(this, unitSpinner, null);
         row.addView(unitSpinner);
 
         // 數量控制

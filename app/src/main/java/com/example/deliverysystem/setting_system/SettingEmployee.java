@@ -3,8 +3,10 @@ package com.example.deliverysystem.setting_system;
 import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -21,6 +23,7 @@ import com.google.android.flexbox.FlexWrap;
 import com.google.android.flexbox.JustifyContent;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,17 +46,46 @@ public class SettingEmployee extends BaseActivity {
         employeeListLayout.setJustifyContent(JustifyContent.FLEX_START);
 
         populateEmployeeList();
+
+        Button saveBtn = findViewById(R.id.save_btn);
+        saveBtn.setOnClickListener(v -> {
+            for (String id : tempDeleted) {
+                ConnectDB.deleteEmployee(id, SettingEmployee.this,
+                        (success, message, confirmList, inspectorList) -> {
+                            if (success) {
+                                DataSource.setConfirmPersons(confirmList);
+                                DataSource.setInspectors(inspectorList);
+                            }
+                        });
+            }
+            tempDeleted.clear();
+
+            for (Map.Entry<String, Boolean> entry : tempStatus.entrySet()) {
+                String id = entry.getKey();
+                boolean newChecked = entry.getValue();
+                ConnectDB.updateAuthorityEmployee(id, !newChecked, SettingEmployee.this,
+                        (success, message, confirmList, inspectorList) -> {
+                            if (success) {
+                                DataSource.setConfirmPersons(confirmList);
+                                DataSource.setInspectors(inspectorList);
+                                populateEmployeeList();
+                            }
+                        });
+            }
+            tempStatus.clear();
+            Toast.makeText(SettingEmployee.this, "已儲存變更", Toast.LENGTH_SHORT).show();
+        });
     }
     private void populateEmployeeList() {
         employeeListLayout.removeAllViews();
 
-        List<Map<String,String>> confirmList = DataSource.getConfirmPerson(); // List<Map<id,name>>
+        List<Map<String,String>> confirmList = DataSource.getConfirmPerson();
         List<Map<String,String>> inspectorList = DataSource.getInspector();
 
         Set<String> addedIds = new HashSet<>();
 
         // 先加入打勾的
-        for (Map<String,String> m : confirmList) {
+        for (Map<String,String> m : inspectorList) {
             String id = m.get("id");
             String name = m.get("name");
             if (id != null && addedIds.add(id)) {
@@ -61,7 +93,7 @@ public class SettingEmployee extends BaseActivity {
             }
         }
         // 再加入未打勾的
-        for (Map<String,String> m : inspectorList) {
+        for (Map<String,String> m : confirmList) {
             String id = m.get("id");
             String name = m.get("name");
             if (id != null && addedIds.add(id)) {
@@ -70,50 +102,42 @@ public class SettingEmployee extends BaseActivity {
         }
     }
 
-private void addEmployeeItem(FlexboxLayout parentLayout, String id, String name, boolean isChecked) {
-    View itemView = getLayoutInflater().inflate(R.layout.employee_item_pattern, parentLayout, false);
+    private Map<String, Boolean> tempStatus = new HashMap<>();
+    private Set<String> tempDeleted = new HashSet<>();
 
-    TextView nameView = itemView.findViewById(R.id.nameText);
-    ImageView toggleIcon = itemView.findViewById(R.id.toggleIcon);
-    ImageView deleteIcon = itemView.findViewById(R.id.deleteIcon);
+    private void addEmployeeItem(FlexboxLayout parentLayout, String id, String name, boolean isChecked) {
+        View itemView = getLayoutInflater().inflate(R.layout.employee_item_pattern, parentLayout, false);
 
-    nameView.setText(name);
-    toggleIcon.setImageResource(isChecked ? R.drawable.circle_checked : R.drawable.circle_unchecked_gray);
+        TextView nameView = itemView.findViewById(R.id.nameText);
+        ImageView toggleIcon = itemView.findViewById(R.id.toggleIcon);
+        ImageView deleteIcon = itemView.findViewById(R.id.deleteIcon);
 
-    toggleIcon.setOnClickListener(v -> {
-        boolean newChecked = !isChecked;
-        ConnectDB.updateAuthorityEmployee(id, newChecked, SettingEmployee.this,
-                (success, message, confirmList, inspectorList) -> {
-                    Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
-                    if (success) {
-                        DataSource.setConfirmPersons(confirmList);   // List<Map<String,String>>
-                        DataSource.setInspectors(inspectorList);     // List<Map<String,String>>
-                        populateEmployeeList();
-                    }
-                });
-    });
+        nameView.setText(name);
 
-    deleteIcon.setOnClickListener(v -> {
-        new AlertDialog.Builder(SettingEmployee.this)
-                .setTitle("刪除員工")
-                .setMessage("確定要刪除 " + name + " 嗎？")
-                .setPositiveButton("刪除", (dialog, which) -> {
-                    ConnectDB.deleteEmployee(id, SettingEmployee.this,
-                            (success, message, confirmList, inspectorList) -> {
-                                Toast.makeText(SettingEmployee.this, message, Toast.LENGTH_SHORT).show();
-                                if (success) {
-                                    DataSource.setConfirmPersons(confirmList);
-                                    DataSource.setInspectors(inspectorList);
-                                    populateEmployeeList();
-                                }
-                            });
-                })
-                .setNegativeButton("取消", null)
-                .show();
-    });
+        boolean currentChecked = tempStatus.containsKey(id) ? tempStatus.get(id) : isChecked;
+        toggleIcon.setImageResource(currentChecked ? R.drawable.circle_checked : R.drawable.circle_unchecked_gray);
 
-    parentLayout.addView(itemView);
-}
+        toggleIcon.setOnClickListener(v -> {
+            boolean newChecked = ! (tempStatus.containsKey(id) ? tempStatus.get(id) : isChecked);
+            tempStatus.put(id, newChecked);
+            populateEmployeeList();
+        });
+
+        deleteIcon.setOnClickListener(v -> {
+            new AlertDialog.Builder(SettingEmployee.this)
+                    .setTitle("刪除 " + name + " 員工")
+                    .setMessage("仍需存檔才會更新!!!!!")
+                    .setPositiveButton("刪除", (dialog, which) -> {
+                        tempDeleted.add(id);
+                        parentLayout.removeView(itemView);
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+        });
+
+        parentLayout.addView(itemView);
+    }
+
     private void showAddEmployeeDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("新增員工名稱");
@@ -155,7 +179,6 @@ private void addEmployeeItem(FlexboxLayout parentLayout, String id, String name,
                 Toast.makeText(this, "姓名不能為空", Toast.LENGTH_SHORT).show();
             }
         });
-
         builder.setNegativeButton("取消", (dialog, which) -> dialog.cancel());
         builder.show();
     }

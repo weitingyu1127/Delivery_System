@@ -5,9 +5,11 @@ import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.example.deliverysystem.BaseActivity;
@@ -15,7 +17,9 @@ import com.example.deliverysystem.data_source.ConnectDB;
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 public class SettingMain extends BaseActivity {
     LinearLayout btnSupplier, btnEmployees, btnPassword, btnExport;
@@ -90,6 +94,7 @@ public class SettingMain extends BaseActivity {
             View dateDialogView = getLayoutInflater().inflate(R.layout.dialog_date_range_export, null);
             EditText startDateInput = dateDialogView.findViewById(R.id.startDate);
             EditText endDateInput = dateDialogView.findViewById(R.id.endDate);
+            Spinner vendorSpinner = dateDialogView.findViewById(R.id.vendorSpinner);
 
             // 日期選擇器
             View.OnClickListener dateClickListener = view -> {
@@ -111,6 +116,14 @@ public class SettingMain extends BaseActivity {
             startDateInput.setOnClickListener(dateClickListener);
             endDateInput.setOnClickListener(dateClickListener);
 
+            // 🔹 產生廠商清單
+            List<String> vendorList = new ArrayList<>();
+            vendorList.add("全部廠商");
+            vendorList.addAll(DataSource.getVendorProductMap().keySet()); // 假設 VendorProductMap 的 key 是廠商名稱
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, vendorList);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            vendorSpinner.setAdapter(adapter);
+
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle("選擇日期區間")
                     .setView(dateDialogView)
@@ -124,17 +137,25 @@ public class SettingMain extends BaseActivity {
                 exportBtn.setOnClickListener(view -> {
                     String startDate = startDateInput.getText().toString().trim();
                     String endDate = endDateInput.getText().toString().trim();
+                    String selectedVendor = vendorSpinner.getSelectedItem().toString();
 
                     if (startDate.isEmpty() || endDate.isEmpty()) {
                         Toast.makeText(this, "請選擇開始與結束日期", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
-                    // 呼叫匯出功能
-                    ConnectDB.exportDataToExcel(this, startDate, endDate, (success, message) -> {
-                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-                        if (success) dialog.dismiss();
-                    });
+                    // 🔹 呼叫匯出功能 (區分是否選擇廠商)
+                    if ("全部廠商".equals(selectedVendor)) {
+                        ConnectDB.exportDataToExcel(this, startDate, endDate, "", (success, message) -> {
+                            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                            if (success) dialog.dismiss();
+                        });
+                    } else {
+                        ConnectDB.exportDataToExcel(this, startDate, endDate, selectedVendor, (success, message) -> {
+                            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                            if (success) dialog.dismiss();
+                        });
+                    }
                 });
             });
 

@@ -3,6 +3,7 @@ import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
@@ -103,10 +104,13 @@ public class BaseActivity extends AppCompatActivity {
     public void getAllData() {
         ConnectDB.getEmployees("inspector", () -> {
             ConnectDB.getEmployees("confirmPerson", () -> {
-                ConnectDB.getVendorProductData(vendorProductMap -> {
-                    DataSource.setVendorProductMap(vendorProductMap);
-                    ConnectDB.getPasswords(passwordList -> {
-                        DataSource.setPasswords(passwordList);
+                ConnectDB.getUnit(units  -> {
+                    DataSource.setUnits(units);
+                    ConnectDB.getVendorProductData(vendorProductMap -> {
+                        DataSource.setVendorProductMap(vendorProductMap);
+                        ConnectDB.getPasswords(passwordList -> {
+                            DataSource.setPasswords(passwordList);
+                        });
                     });
                 });
             });

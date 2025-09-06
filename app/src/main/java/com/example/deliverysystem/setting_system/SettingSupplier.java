@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -30,6 +32,7 @@ import com.example.deliverysystem.data_source.ConnectDB;
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 import com.example.deliverysystem.data_source.VendorInfo;
+import com.example.deliverysystem.import_system.ImportTable;
 import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.FlexWrap;
@@ -53,12 +56,14 @@ public class SettingSupplier extends BaseActivity {
 
     private FlexboxLayout rowRaw;   // 第一排：All + 原料
     private FlexboxLayout rowStuff; // 第二排：物料
+    private EditText searchInput;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.setting_supplier);
 
         FlexboxLayout mainContainer = findViewById(R.id.supplier_container);
+        searchInput = findViewById(R.id.search_input);
         Map<String, VendorInfo> vendorMap = DataSource.getVendorProductMap();
 
         industryMap = new LinkedHashMap<>();
@@ -92,6 +97,17 @@ public class SettingSupplier extends BaseActivity {
         }
         mainContainer.addView(rawRowContainer);
 
+        // 👉 在原料與物料中間加 Divider
+        View divider = new View(this);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (int) (getResources().getDisplayMetrics().density * 1) // 1dp 高
+        );
+        dividerParams.setMargins(0, 16, 0, 16); // 上下留空隙
+        divider.setLayoutParams(dividerParams);
+        divider.setBackgroundColor(Color.parseColor("#999999")); // 灰色
+        mainContainer.addView(divider);
+
         // 第 2 排：物料
         LinearLayout stuffRowContainer = makeRowWithLabel("物料:");
         rowStuff = (FlexboxLayout) stuffRowContainer.getChildAt(1);
@@ -112,10 +128,21 @@ public class SettingSupplier extends BaseActivity {
 
         mainContainer.addView(vendorContainer);
 
-        renderVendors("All");
+        renderVendors("All", "");
         updateCategoryColors(rowRaw);
         updateCategoryColors(rowStuff);
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                renderVendors(currentFilter, s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
         supplierLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -177,7 +204,7 @@ public class SettingSupplier extends BaseActivity {
     protected void getSupplierData(){
         ConnectDB.getVendorProductData(vendorProductMap -> {
             DataSource.setVendorProductMap(vendorProductMap);
-            runOnUiThread(() -> renderVendors(currentFilter));
+            runOnUiThread(() -> renderVendors(currentFilter,""));
 
             industryMap.clear();
             for (Map.Entry<String, VendorInfo> entry : vendorProductMap.entrySet()) {
@@ -219,15 +246,14 @@ private void addCategoryButton(FlexboxLayout targetRow, String label) {
 
     btn.setOnClickListener(v -> {
         currentFilter = label;
-        renderVendors(label);
-        // 兩排都更新選中樣式（不改你的 updateCategoryColors 寫法，只是各呼叫一次）
+        renderVendors(label, searchInput.getText().toString());
         updateCategoryColors(rowRaw);
         updateCategoryColors(rowStuff);
     });
 
     targetRow.addView(btn);
 }
-    private void renderVendors(String filter) {
+    private void renderVendors(String filter, String searchQuery) {
         vendorContainer.removeAllViews();
 
         List<String> filtered = new ArrayList<>();
@@ -237,6 +263,17 @@ private void addCategoryButton(FlexboxLayout targetRow, String label) {
             }
         } else {
             filtered = industryMap.getOrDefault(filter, new ArrayList<>());
+        }
+
+        String query = searchQuery.trim().toLowerCase();
+        if (!query.isEmpty()) {
+            List<String> temp = new ArrayList<>();
+            for (String vendor : filtered) {
+                if (vendor.toLowerCase().contains(query)) {
+                    temp.add(vendor);
+                }
+            }
+            filtered = temp;
         }
 
         for (String vendor : filtered) {
@@ -299,6 +336,7 @@ private void addCategoryButton(FlexboxLayout targetRow, String label) {
             vendorContainer.addView(itemLayout);
         }
     }
+
     private void updateCategoryColors(ViewGroup categoryRow) {
         for (int i = 0; i < categoryRow.getChildCount(); i++) {
             Button btn = (Button) categoryRow.getChildAt(i);

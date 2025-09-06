@@ -151,7 +151,6 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-//                        record.getPicture(),
                         record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
@@ -175,7 +174,6 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-//                        record.getPicture(),
                         record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
@@ -332,8 +330,8 @@ public class InspectTable extends BaseActivity {
         // 建立 Cell 方法（TextView）
         TextView tableDate = createCell("date", date, 120, textSize, padding);
         TextView tableVendor = createCell("vendor", vendor, 120, textSize, padding);
-        TextView tableItem = createCell("item", itemName, 100, textSize, padding);
-        TextView tableSpec = createCell("spec", spec, 100, textSize, padding);
+        TextView tableItem = createCell("item", itemName, 250, textSize, padding);
+        TextView tableSpec = createCell("spec", spec, 250, textSize, padding);
         View tablePackage = createIconOrTextCell("package", packageConfirm, toCheckIconRes(packageConfirm), 80, textSize, padding);
         View tableVector = createIconOrTextCell("vector", vector, toCheckIconRes(vector), 80, textSize, padding);
         View tableLabel = createIconOrTextCell("label", packageLabel, toCheckIconRes(packageLabel), 100, textSize, padding);
@@ -420,7 +418,7 @@ public class InspectTable extends BaseActivity {
                 View dialogView = inflater.inflate(R.layout.dialog_password, null);
                 EditText editPassword = dialogView.findViewById(R.id.editPassword);
 
-                new AlertDialog.Builder(InspectTable.this) // 🔧 修正 this
+                new AlertDialog.Builder(InspectTable.this)
                         .setTitle("密碼驗證")
                         .setView(dialogView)
                         .setPositiveButton("確定", (dialog, which) -> {
@@ -467,7 +465,7 @@ public class InspectTable extends BaseActivity {
 
         rowLayout.addView(confirmView);
 
-        // 加入 icon（eye icon）
+        // 檢視（eye icon）
         ImageView eyeIcon = new ImageView(this);
         eyeIcon.setImageResource(R.drawable.ic_eye);
         eyeIcon.setContentDescription("檢視細節");
@@ -500,7 +498,6 @@ public class InspectTable extends BaseActivity {
             intent.putExtra("COA", COA);
             intent.putExtra("note", note);
             intent.putExtra("place", place);
-//            intent.putExtra("picture", picture);
             intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
             intent.putExtra("inspector", inspector);
             intent.putExtra("confirmed", confirmed);
@@ -513,6 +510,66 @@ public class InspectTable extends BaseActivity {
             startActivity(intent);
         });
         rowLayout.addView(eyeIcon);
+
+        ImageView editIcon = new ImageView(this);
+        editIcon.setImageResource(R.drawable.ic_edit);
+        editIcon.setContentDescription("編輯");
+        editIcon.setPadding(padding, padding, padding, padding);
+        LinearLayout.LayoutParams editIconParams = new LinearLayout.LayoutParams(
+                (int) TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics()),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        editIconParams.setMargins(10, 0, 10, 0);
+        editIconParams.gravity = Gravity.CENTER_VERTICAL;
+        editIcon.setLayoutParams(editIconParams);
+        editIcon.setOnClickListener(v -> {
+            LayoutInflater inflater = LayoutInflater.from(InspectTable.this);
+            View dialogView = inflater.inflate(R.layout.dialog_password, null);
+            EditText editPassword = dialogView.findViewById(R.id.editPassword);
+
+            new AlertDialog.Builder(InspectTable.this)
+                    .setTitle("密碼驗證")
+                    .setView(dialogView)
+                    .setPositiveButton("確定", (dialog, which) -> {
+                        String password = editPassword.getText().toString().trim();
+                        if (DataSource.getPasswords().contains(password)) {
+                            Intent intent = new Intent(InspectTable.this, InspectDetail.class);
+                            intent.putExtra("mode", "edit");
+                            intent.putExtra("type", type);
+                            intent.putExtra("importId", importId);
+                            intent.putExtra("date", date);
+                            intent.putExtra("vendor", vendor);
+                            intent.putExtra("itemName", itemName);
+                            intent.putExtra("spec", spec);
+                            intent.putExtra("packageConfirm", packageConfirm);
+                            intent.putExtra("vector", vector);
+                            intent.putExtra("packageLabel", packageLabel);
+                            intent.putExtra("amount", amount);
+                            intent.putExtra("validDate", validDate);
+                            intent.putExtra("pallet", pallet);
+                            intent.putExtra("COA", COA);
+                            intent.putExtra("note", note);
+                            intent.putExtra("place", place);
+                            intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
+                            intent.putExtra("inspector", inspector);
+                            intent.putExtra("confirmed", confirmed);
+                            if ("原料".equals(type)) {
+                                intent.putExtra("odor", odor);
+                                intent.putExtra("degree", degree);
+                                intent.putExtra("view", true);
+                            }
+                            intent.putExtra("staff", "confirm");
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(InspectTable.this, "密碼錯誤", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+        });
+
+        rowLayout.addView(editIcon);
 
         ImageView deleteIcon = new ImageView(this);
         deleteIcon.setImageResource(R.drawable.ic_delete);

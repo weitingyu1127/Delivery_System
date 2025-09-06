@@ -69,9 +69,9 @@ public class ConnectDB {
                     list.sort(Comparator.comparing(m -> m.getOrDefault("name", "")));
 
                     if (isConfirm) {
-                        DataSource.setConfirmPersons(list);   // List<Map<String,String>>
+                        DataSource.setConfirmPersons(list);
                     } else {
-                        DataSource.setInspectors(list);       // List<Map<String,String>>
+                        DataSource.setInspectors(list);
                     }
 
                     if (callback != null) callback.run();
@@ -79,6 +79,35 @@ public class ConnectDB {
                 .addOnFailureListener(e -> {
                     Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
                     if (callback != null) callback.run();
+                });
+    }
+    // === 單位 ===
+    public static void getUnit(Consumer<List<String>> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("unit")
+                .document("unit") // 這裡是你的文件名稱（左邊看到 unit → unit）
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // 取得所有欄位的值
+                        Map<String, Object> data = documentSnapshot.getData();
+                        if (data != null) {
+                            List<String> units = new ArrayList<>();
+                            for (Object value : data.values()) {
+                                units.add(value.toString());
+                            }
+                            callback.accept(units); // 回傳結果
+                        } else {
+                            callback.accept(new ArrayList<>());
+                        }
+                    } else {
+                        callback.accept(new ArrayList<>());
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(new ArrayList<>());
                 });
     }
 
@@ -576,6 +605,8 @@ public class ConnectDB {
 
     }
     public static void updateAuthorityEmployee(String id, boolean isChecked, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
+        Log.d("update DB", id);
+        Log.d("update DB", String.valueOf(isChecked));
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         db.collection("employees").document(id)
@@ -771,7 +802,7 @@ public class ConnectDB {
         return value;
     }
 
-    public static void exportDataToExcel(Context context, String startDate, String endDate, ExportCallback callback) {
+    public static void exportDataToExcel(Context context, String startDate, String endDate, String vendor, ExportCallback callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
@@ -790,10 +821,14 @@ public class ConnectDB {
                     List<Map<String, Object>> filteredList = new ArrayList<>();
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         String dateStr = doc.getString("import_date");
+                        String docVendor = doc.getString("vendor");
                         try {
                             Date docDate = sdf.parse(dateStr);
                             if (docDate != null && !docDate.before(start) && !docDate.after(end)) {
-                                filteredList.add(doc.getData());
+                                // 🔑 加 vendor 條件：如果 vendor 不為空，就要符合
+                                if (vendor == null || vendor.isEmpty() || vendor.equals(docVendor)) {
+                                    filteredList.add(doc.getData());
+                                }
                             }
                         } catch (ParseException ignored) {}
                     }
@@ -844,7 +879,12 @@ public class ConnectDB {
                             downloadsDir.mkdirs();
                         }
 
-                        String fileName = startDate + " ~ " + endDate + ".xlsx";
+                        String fileName;
+                        if (vendor == null || vendor.isEmpty()) {
+                            fileName = startDate + " ~ " + endDate + ".xlsx";
+                        } else {
+                            fileName = vendor + "_" + startDate + " ~ " + endDate + ".xlsx";
+                        }
                         File file = new File(downloadsDir, fileName);
                         FileOutputStream fos = new FileOutputStream(file);
                         workbook.write(fos);
@@ -923,4 +963,57 @@ public class ConnectDB {
                     Log.e("Firestore", "更新失敗，place: " + place + ", type: " + type + ", id: " + id, e);
                 });
     }
+
+    // 驗收的手動更新
+    public static void adjustQuantity(String place, String type, String id, int diff) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("storage")
+                .document(place)          // 本廠 / 倉庫 / 線西
+                .collection(type)         // 原料 / 物料
+                .document(id)             // 產品的 doc id
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists()) {
+                        Long current = snapshot.getLong("amount");
+                        int currentAmount = (current != null) ? current.intValue() : 0;
+
+                        int newAmount = currentAmount + diff;
+                        if (newAmount < 0) newAmount = 0; // 不要讓數量變成負數
+
+                        snapshot.getReference().update("amount", newAmount)
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d("Firestore", "update success");
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("Firestore", "更新失敗，place: " + place + ", type: " + type + ", id: " + id, e);
+                                });
+                    } else {
+                        Log.w("Firestore", "找不到此紀錄: place=" + place + ", type=" + type + ", id=" + id);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "讀取失敗，place: " + place + ", type: " + type + ", id: " + id, e);
+                });
+    }
+    public static void adjustQuantityByProduct(String place, String type, String productName, int diff) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("storage")
+                .document(place)
+                .collection(type)
+                .whereEqualTo("product", productName)   // 🔎 用 productName 查
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        String docId = querySnapshot.getDocuments().get(0).getId();
+                        adjustQuantity(place, type, docId, diff); // ✅ 用之前的函式
+                    } else {
+                        Log.w("Firestore", "找不到對應的 product: " + productName);
+                    }
+                })
+                .addOnFailureListener(e -> Log.e("Firestore", "查詢失敗", e));
+    }
+
 }

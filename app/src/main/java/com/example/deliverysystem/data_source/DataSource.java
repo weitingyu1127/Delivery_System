@@ -1,5 +1,12 @@
 package com.example.deliverysystem.data_source;
 
+import android.content.Context;
+import android.util.Log;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+
+import androidx.annotation.Nullable;
+
 import com.example.deliverysystem.import_system.ImportRecord;
 import com.example.deliverysystem.inspect_system.InspectRecord;
 
@@ -74,6 +81,46 @@ public class DataSource {
 
     public static List<ImportRecord> getImportRecords() {
         return importRecords;
+    }
+
+    // ✅ 單位 (unit)
+    private static List<String> units = new ArrayList<>();
+
+    public static void setUnits(List<String> list) {
+        units.clear();
+
+        // 如果傳進來的只有一個大字串 → 自動拆分
+        if (list.size() == 1 && list.get(0).startsWith("[") && list.get(0).endsWith("]")) {
+            String joined = list.get(0).substring(1, list.get(0).length() - 1); // 去掉 []
+            String[] splitUnits = joined.split(",\\s*"); // 依逗號切割
+            for (String u : splitUnits) {
+                units.add(u.trim());
+            }
+        } else {
+            units.addAll(list);
+        }
+
+        Log.d("DataSource", "Units set: " + units);
+    }
+
+    public static List<String> getUnits() {
+        return units;
+    }
+
+    public static void setupUnitSpinner(Context context, Spinner spinner, @Nullable String defaultValue) {
+        ArrayAdapter<String> unitAdapter = new ArrayAdapter<>(
+                context,
+                android.R.layout.simple_spinner_item,
+                units   // ✅ 直接用 List<String>
+        );
+        unitAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(unitAdapter);
+
+        // 如果有指定預設值，就幫你選中
+        if (defaultValue != null && units.contains(defaultValue)) {
+            int index = units.indexOf(defaultValue);
+            spinner.setSelection(index);
+        }
     }
 
 }

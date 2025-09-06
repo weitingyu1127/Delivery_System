@@ -3,9 +3,13 @@ package com.example.deliverysystem.import_system;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -36,13 +40,14 @@ public class ImportMain extends BaseActivity {
     // 兩排分類 Row（為了在點擊時同時更新選中樣式）
     private FlexboxLayout rowRaw;   // 第一排：All + 原料
     private FlexboxLayout rowStuff; // 第二排：物料
-
+    private EditText searchInput;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.import_main);
 
         FlexboxLayout mainContainer = findViewById(R.id.main_container);
+        searchInput = findViewById(R.id.search_input);
         Map<String, VendorInfo> vendorMap = DataSource.getVendorProductMap();
 
         // 整理 industryMap（保留原邏輯，用 industry 當 key，收集 vendor 名單）
@@ -77,6 +82,16 @@ public class ImportMain extends BaseActivity {
         }
         mainContainer.addView(rawRowContainer);
 
+        View divider = new View(this);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (int) (getResources().getDisplayMetrics().density * 1) // 1dp 高
+        );
+        dividerParams.setMargins(0, 16, 0, 16); // 上下留空隙
+        divider.setLayoutParams(dividerParams);
+        divider.setBackgroundColor(Color.parseColor("#999999")); // 灰色
+        mainContainer.addView(divider);
+
         // 第 2 排：物料
         LinearLayout stuffRowContainer = makeRowWithLabel("物料:");
         rowStuff = (FlexboxLayout) stuffRowContainer.getChildAt(1);
@@ -100,10 +115,23 @@ public class ImportMain extends BaseActivity {
         mainContainer.addView(vendorContainer);
 
         // 預設顯示 All
-        renderVendors("All");
+        renderVendors("All", "");
         // 同步更新兩排的選中樣式
         updateCategoryColors(rowRaw);
         updateCategoryColors(rowStuff);
+
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                renderVendors(currentFilter, s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
     }
     /** 建立一排：左邊是標籤，右邊是可換行的 FlexboxLayout */
     private LinearLayout makeRowWithLabel(String labelText) {
@@ -163,8 +191,7 @@ public class ImportMain extends BaseActivity {
 
         btn.setOnClickListener(v -> {
             currentFilter = label;
-            renderVendors(label);
-            // 兩排都更新選中樣式（不改你的 updateCategoryColors 寫法，只是各呼叫一次）
+            renderVendors(label, searchInput.getText().toString());
             updateCategoryColors(rowRaw);
             updateCategoryColors(rowStuff);
         });
@@ -186,7 +213,7 @@ public class ImportMain extends BaseActivity {
         }
     }
 
-    private void renderVendors(String filter) {
+    private void renderVendors(String filter, String searchQuery) {
         vendorContainer.removeAllViews();
 
         List<String> filtered = new ArrayList<>();
@@ -196,6 +223,18 @@ public class ImportMain extends BaseActivity {
             }
         } else {
             filtered = industryMap.getOrDefault(filter, new ArrayList<>());
+        }
+
+        // 🔍 文字過濾（忽略大小寫）
+        String query = searchQuery.trim().toLowerCase();
+        if (!query.isEmpty()) {
+            List<String> temp = new ArrayList<>();
+            for (String vendor : filtered) {
+                if (vendor.toLowerCase().contains(query)) {
+                    temp.add(vendor);
+                }
+            }
+            filtered = temp;
         }
 
         for (String vendor : filtered) {
@@ -219,9 +258,7 @@ public class ImportMain extends BaseActivity {
             layoutParams.setMargins(16, 8, 16, 8);
             itemLayout.setLayoutParams(layoutParams);
 
-            // 左邊圓形icon
             FrameLayout iconContainer = new FrameLayout(this);
-            FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(64, 64);
             iconContainer.setLayoutParams(new LinearLayout.LayoutParams(64, 64));
             iconContainer.setBackgroundResource(R.drawable.circle_gray_pattern);
 
@@ -230,7 +267,6 @@ public class ImportMain extends BaseActivity {
             icon.setLayoutParams(new FrameLayout.LayoutParams(32, 32, Gravity.CENTER));
             iconContainer.addView(icon);
 
-            // 名稱 TextView
             TextView nameText = new TextView(this);
             nameText.setText(vendor);
             nameText.setTextSize(18);
@@ -239,13 +275,11 @@ public class ImportMain extends BaseActivity {
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             nameText.setPadding(24, 0, 24, 0);
 
-            // 右側箭頭
             ImageView arrow = new ImageView(this);
             arrow.setImageResource(R.drawable.ic_arrow);
             LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(48, 48);
             arrow.setLayoutParams(arrowParams);
 
-            // 加入所有元件
             itemLayout.addView(iconContainer);
             itemLayout.addView(nameText);
             itemLayout.addView(arrow);
