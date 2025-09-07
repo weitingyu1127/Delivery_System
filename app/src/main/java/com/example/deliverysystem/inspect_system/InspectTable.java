@@ -87,7 +87,6 @@ public class InspectTable extends BaseActivity {
             Spinner inspectorSp = findViewById(R.id.spinnerInspector);
             Spinner confirmerSp = findViewById(R.id.spinnerConfirmPerson);
             TextView dateTv     = findViewById(R.id.date_text);
-
             String vendor    = vendorSp.getSelectedItemPosition()    == 0 ? "" : vendorSp.getSelectedItem().toString();
             String product   = productSp.getSelectedItemPosition()   == 0 ? "" : productSp.getSelectedItem().toString();
             String inspector = inspectorSp.getSelectedItemPosition() == 0 ? "" : inspectorSp.getSelectedItem().toString();
@@ -97,7 +96,6 @@ public class InspectTable extends BaseActivity {
             fetchFilteredRecords(type, vendor, product, inspector, confirmer, date, currentPlace);
         });
 
-        // 綁定三個地點按鈕
         Button btnA = findViewById(R.id.btn_place_A);
         Button btnB = findViewById(R.id.btn_place_B);
         Button btnC = findViewById(R.id.btn_place_C);
@@ -114,8 +112,6 @@ public class InspectTable extends BaseActivity {
         btnA.setOnClickListener(placeClick);
         btnB.setOnClickListener(placeClick);
         btnC.setOnClickListener(placeClick);
-
-        // 預設選 A（本廠）並立即查詢顯示
         selectPlace("本廠", btnA, btnB, btnC);
 
     }
@@ -151,11 +147,10 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-                        record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
-                        record.getOdor(),         // ✅ 新增：異味 (Boolean)
-                        record.getDegree(),       // ✅ 新增：溫度 (nteger)
+                        record.getOdor(),
+                        record.getDegree(),
                         type
                 );
             } else {
@@ -174,7 +169,6 @@ public class InspectTable extends BaseActivity {
                         record.getCoa(),
                         record.getNote(),
                         record.getPlace(),
-                        record.getImages(),
                         record.getInspectorStaff(),
                         record.getConfirmStaff(),
                         null,
@@ -187,7 +181,7 @@ public class InspectTable extends BaseActivity {
 
     private void clearTable() {
         ViewGroup tableLayout = findViewById(R.id.inspectTable);
-        tableLayout.removeAllViews(); // 清空子 View（表格列）
+        tableLayout.removeAllViews();
     }
     private void fetchFilteredRecords(String type, String vendor, String product, String inspector, String confirmer, String date, String place) {
         clearTable();
@@ -203,13 +197,12 @@ public class InspectTable extends BaseActivity {
         Spinner vendorSpinner = findViewById(R.id.spinnerVendor);
         Spinner productSpinner = findViewById(R.id.spinnerProduct);
 
-        // ✅ 建立 vendor 清單，僅取指定 type 的 vendor
         List<String> vendorList = new ArrayList<>();
         vendorList.add("選擇廠商");
 
         for (Map.Entry<String, VendorInfo> entry : DataSource.getVendorProductMap().entrySet()) {
             if (type.equals(entry.getValue().getType())) {
-                vendorList.add(entry.getKey()); // 廠商名稱
+                vendorList.add(entry.getKey());
             }
         }
 
@@ -234,22 +227,18 @@ public class InspectTable extends BaseActivity {
         productAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         productSpinner.setAdapter(productAdapter);
 
-
-        // ✅ 廠商選擇時更新產品
         vendorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedVendor = vendorSpinner.getSelectedItem().toString();
 
                 Set<String> uniq = new LinkedHashSet<>();
                 if ("選擇廠商".equals(selectedVendor)) {
-                    // 全部同 type 的產品（去重）
                     for (VendorInfo info : DataSource.getVendorProductMap().values()) {
                         if (type.equals(info.getType())) {
                             uniq.addAll(info.getProducts());
                         }
                     }
                 } else {
-                    // 單一廠商的產品（也去重保險）
                     uniq.addAll(DataSource.getProductsByVendor(selectedVendor));
                 }
 
@@ -265,7 +254,6 @@ public class InspectTable extends BaseActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // 其他 spinner 初始化
         setupSpinnerData(R.id.spinnerInspector, DataSource.getInspector(), "", "inspect");
         setupSpinnerData(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "", "confirm");
     }
@@ -275,10 +263,8 @@ public class InspectTable extends BaseActivity {
         setupSpinnerAdapter(spinner, data, selectedId, type);
     }
     private void setupSpinnerAdapter(Spinner spinner, List<Map<String, String>> data, String selectedId, String type) {
-        // 建立顯示用清單
         List<String> spinnerDisplayList = new ArrayList<>();
-        // 第一項提示文字
-        if ("inspect".equals(type)) { // ⚠ 用 equals 判斷字串
+        if ("inspect".equals(type)) {
             spinnerDisplayList.add("驗收人員");
         } else {
             spinnerDisplayList.add("確認人員");
@@ -295,7 +281,6 @@ public class InspectTable extends BaseActivity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
 
-        // 設定預選項（根據 id）
         if (selectedId != null && !selectedId.trim().isEmpty()) {
             int position = -1;
             for (int i = 0; i < data.size(); i++) {
@@ -310,7 +295,7 @@ public class InspectTable extends BaseActivity {
         }
     }
     private void addTableRow(String importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
-                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, List<String> picture, String inspector,
+                             String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, String inspector,
                              String confirmed, String odor, String degree, String type) {
         LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
@@ -327,7 +312,6 @@ public class InspectTable extends BaseActivity {
         int textSize = 16;
         int padding = 8;
 
-        // 建立 Cell 方法（TextView）
         TextView tableDate = createCell("date", date, 120, textSize, padding);
         TextView tableVendor = createCell("vendor", vendor, 120, textSize, padding);
         TextView tableItem = createCell("item", itemName, 250, textSize, padding);
@@ -356,19 +340,15 @@ public class InspectTable extends BaseActivity {
                             TypedValue.COMPLEX_UNIT_DIP, 100, getResources().getDisplayMetrics()),
                     ViewGroup.LayoutParams.WRAP_CONTENT
             ));
-            // 可選：加入點擊事件
             inspectorBtn.setOnClickListener(v -> {
-                Intent intent = new Intent(InspectTable.this, InspectDetail.class);
-                intent.putExtra("mode", "edit");
-                intent.putExtra("type", type);
-                intent.putExtra("importId", importId);
-                intent.putExtra("date", date);
-                intent.putExtra("vendor", vendor);
-                intent.putExtra("itemName", itemName);
-                intent.putExtra("amount", amount);
-                intent.putExtra("place", place);
-                intent.putExtra("staff", "inspector");
-                startActivity(intent);
+                openInspectDetail(
+                        "edit", type, importId, date,
+                        vendor, itemName, null,
+                        null, null, null,
+                        amount, null, null, null,
+                        null, place, null, null,
+                        null, null, "inspector"
+                );
             });
             inspectorView = inspectorBtn;
         } else {
@@ -412,7 +392,6 @@ public class InspectTable extends BaseActivity {
                             TypedValue.COMPLEX_UNIT_DIP, 100, getResources().getDisplayMetrics()),
                     ViewGroup.LayoutParams.WRAP_CONTENT
             ));
-            // 可選：加入點擊事件
             confirmBtn.setOnClickListener(v -> {
                 LayoutInflater inflater = LayoutInflater.from(InspectTable.this);
                 View dialogView = inflater.inflate(R.layout.dialog_password, null);
@@ -424,33 +403,14 @@ public class InspectTable extends BaseActivity {
                         .setPositiveButton("確定", (dialog, which) -> {
                             String password = editPassword.getText().toString().trim();
                             if (DataSource.getPasswords().contains(password)) {
-                                // 驗證成功後才跳轉
-                                Intent intent = new Intent(InspectTable.this, InspectDetail.class);
-                                intent.putExtra("mode", "edit");
-                                intent.putExtra("type", type);
-                                intent.putExtra("importId", importId);
-                                intent.putExtra("date", date);
-                                intent.putExtra("vendor", vendor);
-                                intent.putExtra("itemName", itemName);
-                                intent.putExtra("spec", spec);
-                                intent.putExtra("packageConfirm", packageConfirm);
-                                intent.putExtra("vector", vector);
-                                intent.putExtra("packageLabel", packageLabel);
-                                intent.putExtra("amount", amount);
-                                intent.putExtra("validDate", validDate);
-                                intent.putExtra("pallet", pallet);
-                                intent.putExtra("COA", COA);
-                                intent.putExtra("note", note);
-                                intent.putExtra("place", place);
-                                intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
-                                intent.putExtra("inspector", inspector);
-                                intent.putExtra("confirmed", confirmed);
-                                if ("原料".equals(type)) {
-                                    intent.putExtra("odor", odor);
-                                    intent.putExtra("degree", degree);
-                                }
-                                intent.putExtra("staff", "confirm");
-                                startActivity(intent);
+                                openInspectDetail(
+                                        "edit", type, importId, date,
+                                        vendor, itemName, spec,
+                                        packageConfirm, vector, packageLabel,
+                                        amount, validDate, pallet, COA,
+                                        note, place, inspector, confirmed,
+                                        odor, degree, "confirm"
+                                );
                             } else {
                                 Toast.makeText(InspectTable.this, "密碼錯誤", Toast.LENGTH_SHORT).show(); // 🔧 修正 this
                             }
@@ -481,33 +441,14 @@ public class InspectTable extends BaseActivity {
         eyeIcon.setLayoutParams(eyeIconParams);
 
         eyeIcon.setOnClickListener(v -> {
-            Intent intent = new Intent(InspectTable.this, InspectDetail.class);
-            intent.putExtra("mode", "view");
-            intent.putExtra("type", type);
-            intent.putExtra("importId", importId);
-            intent.putExtra("date", date);
-            intent.putExtra("vendor", vendor);
-            intent.putExtra("itemName", itemName);
-            intent.putExtra("spec", spec);
-            intent.putExtra("packageConfirm", packageConfirm);
-            intent.putExtra("vector", vector);
-            intent.putExtra("packageLabel", packageLabel);
-            intent.putExtra("amount", amount);
-            intent.putExtra("validDate", validDate);
-            intent.putExtra("pallet", pallet);
-            intent.putExtra("COA", COA);
-            intent.putExtra("note", note);
-            intent.putExtra("place", place);
-            intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
-            intent.putExtra("inspector", inspector);
-            intent.putExtra("confirmed", confirmed);
-            if ("原料".equals(type)) {
-                intent.putExtra("odor", odor);
-                intent.putExtra("degree", degree);
-                intent.putExtra("view", true);
-            }
-            intent.putExtra("staff", "confirm");
-            startActivity(intent);
+            openInspectDetail(
+                    "view", type, importId, date,
+                    vendor, itemName, spec,
+                    packageConfirm, vector, packageLabel,
+                    amount, validDate, pallet, COA,
+                    note, place, inspector, confirmed,
+                    odor, degree, "confirm"
+            );
         });
         rowLayout.addView(eyeIcon);
 
@@ -534,33 +475,14 @@ public class InspectTable extends BaseActivity {
                     .setPositiveButton("確定", (dialog, which) -> {
                         String password = editPassword.getText().toString().trim();
                         if (DataSource.getPasswords().contains(password)) {
-                            Intent intent = new Intent(InspectTable.this, InspectDetail.class);
-                            intent.putExtra("mode", "edit");
-                            intent.putExtra("type", type);
-                            intent.putExtra("importId", importId);
-                            intent.putExtra("date", date);
-                            intent.putExtra("vendor", vendor);
-                            intent.putExtra("itemName", itemName);
-                            intent.putExtra("spec", spec);
-                            intent.putExtra("packageConfirm", packageConfirm);
-                            intent.putExtra("vector", vector);
-                            intent.putExtra("packageLabel", packageLabel);
-                            intent.putExtra("amount", amount);
-                            intent.putExtra("validDate", validDate);
-                            intent.putExtra("pallet", pallet);
-                            intent.putExtra("COA", COA);
-                            intent.putExtra("note", note);
-                            intent.putExtra("place", place);
-                            intent.putStringArrayListExtra("picture", new ArrayList<>(picture));
-                            intent.putExtra("inspector", inspector);
-                            intent.putExtra("confirmed", confirmed);
-                            if ("原料".equals(type)) {
-                                intent.putExtra("odor", odor);
-                                intent.putExtra("degree", degree);
-                                intent.putExtra("view", true);
-                            }
-                            intent.putExtra("staff", "confirm");
-                            startActivity(intent);
+                            openInspectDetail(
+                                    "edit", type, importId, date,
+                                    vendor, itemName, spec,
+                                    packageConfirm, vector, packageLabel,
+                                    amount, validDate, pallet, COA,
+                                    note, place, inspector, confirmed,
+                                    odor, degree, "confirm"
+                            );
                         } else {
                             Toast.makeText(InspectTable.this, "密碼錯誤", Toast.LENGTH_SHORT).show();
                         }
@@ -637,7 +559,6 @@ public class InspectTable extends BaseActivity {
         return textView;
     }
 
-    // 將 "1"/"0" 轉成圖示資源 ID
     private int toCheckIconRes(String value) {
         if (value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null")) {
             return 0;
@@ -652,7 +573,6 @@ public class InspectTable extends BaseActivity {
         }
     }
 
-    // 根據圖示是否存在決定用 ImageView 或 TextView 顯示
     private View createIconOrTextCell(String tag, String value, int iconRes, int widthDp, int textSize, int padding) {
         int widthPx  = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
         int heightPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 36,    getResources().getDisplayMetrics());
@@ -675,12 +595,9 @@ public class InspectTable extends BaseActivity {
 
     private void selectPlace(String place, Button selected, Button other1, Button other2) {
         currentPlace = place;
-        // UI 樣式
         styleSelected(selected);
         styleUnselected(other1);
         styleUnselected(other2);
-
-        // 依目前 currentPlace 重新抓資料
         getInspectData();
     }
 
@@ -690,7 +607,48 @@ public class InspectTable extends BaseActivity {
     }
 
     private void styleUnselected(Button btn) {
-        btn.setBackgroundResource(R.drawable.btn_white); // 你的未選樣式
+        btn.setBackgroundResource(R.drawable.btn_white);
         btn.setTextColor(getResources().getColor(android.R.color.black));
     }
+
+    private void openInspectDetail(
+            String mode, String type, String importId, String date,
+            String vendor, String itemName, String spec,
+            String packageConfirm, String vector, String packageLabel,
+            String amount, String validDate, String pallet, String COA,
+            String note, String place, String inspector, String confirmed,
+            String odor, String degree, String staff) {
+
+        Intent intent = new Intent(InspectTable.this, InspectDetail.class);
+        intent.putExtra("mode", mode);
+        intent.putExtra("type", type);
+        intent.putExtra("importId", importId);
+        intent.putExtra("date", date);
+        intent.putExtra("vendor", vendor);
+        intent.putExtra("itemName", itemName);
+        intent.putExtra("spec", spec);
+        intent.putExtra("packageConfirm", packageConfirm);
+        intent.putExtra("vector", vector);
+        intent.putExtra("packageLabel", packageLabel);
+        intent.putExtra("amount", amount);
+        intent.putExtra("validDate", validDate);
+        intent.putExtra("pallet", pallet);
+        intent.putExtra("COA", COA);
+        intent.putExtra("note", note);
+        intent.putExtra("place", place);
+        intent.putExtra("inspector", inspector);
+        intent.putExtra("confirmed", confirmed);
+
+        if ("原料".equals(type)) {
+            intent.putExtra("odor", odor);
+            intent.putExtra("degree", degree);
+            if ("view".equals(mode)) {
+                intent.putExtra("view", true); // 只有 view 模式才需要
+            }
+        }
+
+        intent.putExtra("staff", staff);
+        startActivity(intent);
+    }
+
 }

@@ -171,6 +171,7 @@ public class ConnectDB {
                 .whereEqualTo("type", type)
                 .whereEqualTo("place", placeValue)
                 .orderBy("import_date", Query.Direction.DESCENDING)
+                .limit(100)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     for (DocumentSnapshot doc : querySnapshot) {
@@ -188,17 +189,6 @@ public class ConnectDB {
                         String coa             = doc.getString("coa");
                         String note            = doc.getString("note");
                         String place            = doc.getString("place");
-//                        String picture         = doc.getString("image_name");
-                        Object imgObj = doc.get("image_name");
-                        List<String> imageNames = new ArrayList<>();
-                        if (imgObj instanceof List<?>) {
-                            for (Object o : (List<?>) imgObj) {
-                                if (o != null) imageNames.add(String.valueOf(o));
-                            }
-                        } else if (imgObj instanceof String) {
-                            String s = (String) imgObj;
-                            if (!s.trim().isEmpty()) imageNames.add(s);
-                        }
                         String inspectorStaff  = doc.getString("inspector_staff");
                         String confirmStaff    = doc.getString("confirm_staff");
 
@@ -209,20 +199,54 @@ public class ConnectDB {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, place, imageNames,
+                                    quantity, validDate, palletComplete, coa, note, place,
                                     inspectorStaff, confirmStaff, odor, degree
                             );
                         } else {
                             record = new InspectRecord(
                                     importId, importDate, vendor, product, spec,
                                     packageComplete, vectorComplete, packageLabel,
-                                    quantity, validDate, palletComplete, coa, note, place, imageNames,
+                                    quantity, validDate, palletComplete, coa, note, place,
                                     inspectorStaff, confirmStaff, "", ""
                             );
                         }
                         records.add(record);
                     }
                     callback.accept(records);
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(new ArrayList<>());
+                });
+    }
+    public static void getImage(String importId, Consumer<List<String>> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("import_records")
+                .whereEqualTo("import_id", importId)
+                .limit(1) // 只會有一筆
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> imageNames = new ArrayList<>();
+
+                    if (!querySnapshot.isEmpty()) {
+                        DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                        Object imgObj = doc.get("image_name");
+
+                        if (imgObj instanceof List<?>) {
+                            for (Object o : (List<?>) imgObj) {
+                                if (o != null) {
+                                    String val = String.valueOf(o).trim();
+                                    if (!val.isEmpty()) imageNames.add(val);
+                                }
+                            }
+                        } else if (imgObj instanceof String) {
+                            String s = ((String) imgObj).trim();
+                            if (!s.isEmpty()) imageNames.add(s);
+                        }
+                    }
+
+                    callback.accept(imageNames != null ? imageNames : new ArrayList<>());
                 })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
@@ -237,6 +261,7 @@ public class ConnectDB {
         db.collection("import_records")
                 .whereEqualTo("vendor", vendorName)
                 .orderBy("import_date", Query.Direction.DESCENDING)
+                .limit(100)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
@@ -326,7 +351,7 @@ public class ConnectDB {
                 });
     }
 
-    public static void updateInspectRecord(String type, String importId, String amountCombined, String spec, String validDate,
+    public static void updateInspectRecord(String importId, String amountCombined, String spec, String validDate,
                                            boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                            boolean packageLabel, boolean pallet, boolean coa,
                                            String note, List<String> imageFileName, String inspector, String confirmer,
@@ -359,7 +384,6 @@ public class ConnectDB {
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (!querySnapshot.isEmpty()) {
-                        // 假設 import_id 是唯一的，只更新第一筆找到的文件
                         DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
                         doc.getReference().update(updateData)
                                 .addOnSuccessListener(unused -> callback.accept(true))
@@ -396,23 +420,14 @@ public class ConnectDB {
         if (!confirmer.isEmpty()) query = query.whereEqualTo("confirm_staff", confirmer);
         if (!date.isEmpty()) {
             query = query.whereEqualTo("import_date", date);
+        }else {
+            query = query.orderBy("import_date", Query.Direction.DESCENDING);
         }
-
+        query = query.limit(100);
         query.get().addOnSuccessListener(querySnapshot -> {
             List<InspectRecord> records = new ArrayList<>();
             for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                 try {
-                    // --- 兼容 image_name = List 或 String ---
-                    Object imgObj = doc.get("image_name");
-                    List<String> imageNames = new ArrayList<>();
-                    if (imgObj instanceof List) {
-                        //noinspection unchecked
-                        imageNames.addAll((List<String>) imgObj);
-                    } else if (imgObj instanceof String) {
-                        String s = (String) imgObj;
-                        if (s != null && !s.trim().isEmpty()) imageNames.add(s);
-                    }
-
                     // 原料才有異味/溫度；物料給空字串即可
                     String odor   = "原料".equals(type) ? doc.getString("odor")   : "";
                     String degree = "原料".equals(type) ? doc.getString("degree") : "";
@@ -432,14 +447,11 @@ public class ConnectDB {
                             doc.getString("coa"),
                             doc.getString("note"),
                             doc.getString("place"),
-//                            doc.getString("image_name"),
-                            imageNames, // <-- 這裡改成 List<String>
                             doc.getString("inspector_staff"),
                             doc.getString("confirm_staff"),
                             odor,
                             degree
                     );
-
                     records.add(record);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -450,36 +462,6 @@ public class ConnectDB {
             e.printStackTrace();
             callback.accept(new ArrayList<>());
         });
-//            callback.accept(records);
-//        }).addOnFailureListener(e -> {
-//            e.printStackTrace();
-//            callback.accept(new ArrayList<>());
-//        });
-    }
-
-    // 發出 HTTP GET 請求到 PHP API，取得指定欄位的 distinct 值
-    public static void getDistinctData(String collectionName, String fieldName, Consumer<String[]> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection(collectionName)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    Set<String> uniqueValues = new HashSet<>();
-                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        String value = doc.getString(fieldName);
-                        if (value != null) {
-                            uniqueValues.add(value);
-                        }
-                    }
-
-                    String[] result = uniqueValues.toArray(new String[0]);
-                    Log.d("Firestore_DATA", Arrays.toString(result));
-
-                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(result));
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(new String[]{}));
-                });
     }
 
     public static void addProduct(Context context, String vendor, List<String> products, Consumer<Boolean> callback) {
@@ -605,8 +587,6 @@ public class ConnectDB {
 
     }
     public static void updateAuthorityEmployee(String id, boolean isChecked, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
-        Log.d("update DB", id);
-        Log.d("update DB", String.valueOf(isChecked));
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         db.collection("employees").document(id)
@@ -693,10 +673,7 @@ public class ConnectDB {
                     callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
                 });
     }
-    private static void fetchEmployeeLists(FirebaseFirestore db,
-                                           EmployeeUpdateCallback callback,
-                                           boolean success,
-                                           String message) {
+    private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
 
         db.collection("employees").get()
                 .addOnSuccessListener(querySnapshot -> {
@@ -912,7 +889,6 @@ public class ConnectDB {
         newData.put("product", product);
         newData.put("amount", amount);
 
-        // 不要 Toast，只負責寫資料
         rawMaterialRef.add(newData)
                 .addOnSuccessListener(docRef -> {
                     Log.d("Firestore", "新增成功，ID: " + docRef.getId());
@@ -944,7 +920,7 @@ public class ConnectDB {
                 })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
-                    callback.accept(new ArrayList<>()); // 出錯回傳空列表
+                    callback.accept(new ArrayList<>());
                 });
     }
 
@@ -952,9 +928,9 @@ public class ConnectDB {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         db.collection("storage")
-                .document(place)          // 本廠 / 外廠
-                .collection(type)         // 原料 / 成品
-                .document(id)             // 自動生成的 id
+                .document(place)
+                .collection(type)
+                .document(id)
                 .update("amount", newAmount)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("Firestore", "數量已更新，place: " + place + ", type: " + type + ", id: " + id + " → 新數量: " + newAmount);
