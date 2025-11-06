@@ -74,7 +74,41 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:weightSum="5">
+        <!-- Date Picker -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
 
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:paddingHorizontal="8dp"
+                android:background="@drawable/spinner_pattern">
+
+                <TextView
+                    android:id="@+id/date_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="選擇進貨日期"
+                    android:textColor="#747474"
+                    android:textSize="16sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <ImageView
+                    android:id="@+id/calendar_icon"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="日曆圖示"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
         <!-- Vendor Spinner -->
         <LinearLayout
             android:layout_width="0dp"
@@ -125,41 +159,6 @@
             </androidx.cardview.widget.CardView>
         </LinearLayout>
 
-        <!-- Date Picker -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:padding="4dp">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:paddingHorizontal="8dp"
-                android:background="@drawable/spinner_pattern">
-
-                <TextView
-                    android:id="@+id/date_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="選擇進貨日期"
-                    android:textColor="#747474"
-                    android:textSize="16sp"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
-
-                <ImageView
-                    android:id="@+id/calendar_icon"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:src="@drawable/ic_calendar"
-                    android:contentDescription="日曆圖示"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
-            </androidx.constraintlayout.widget.ConstraintLayout>
-        </LinearLayout>
         <!-- Inspector Spinner -->
         <LinearLayout
             android:layout_width="0dp"
@@ -318,4 +317,12 @@
             </LinearLayout>
         </HorizontalScrollView>
     </androidx.cardview.widget.CardView>
+    <Button
+        android:id="@+id/btnLoadMore"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="載入更多"
+        android:background="@drawable/btn_blue"
+        android:textColor="@android:color/white"
+        android:layout_margin="10dp"/>
 </LinearLayout>

@@ -47,6 +47,7 @@ public class InspectTable extends BaseActivity {
     private String currentPlace = "本廠";
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         type = getIntent().getStringExtra("type");
         if ("物料".equals(type)) {
             setContentView(R.layout.inspect_material_table);
@@ -114,6 +115,7 @@ public class InspectTable extends BaseActivity {
         btnC.setOnClickListener(placeClick);
         selectPlace("本廠", btnA, btnB, btnC);
 
+        setupLoadMoreButton();
     }
 
     protected void onResume() {
@@ -123,7 +125,44 @@ public class InspectTable extends BaseActivity {
     private void getInspectData() {
         ConnectDB.getInspectRecords(type, currentPlace, inspectList -> {
             DataSource.setInspectRecords(inspectList);
-            runOnUiThread(this::onInspectDataReady);
+        });
+    }
+    private void setupLoadMoreButton() {
+        Button loadMoreBtn = findViewById(R.id.btnLoadMore);
+        loadMoreBtn.setOnClickListener(v -> {
+            ConnectDB.getInspectRecords(type, currentPlace, moreRecords -> {
+                List<InspectRecord> all = DataSource.getInspectRecords();
+                int oldSize = all.size();
+                all.addAll(moreRecords);
+                DataSource.setInspectRecords(all);
+
+                runOnUiThread(() -> {
+                    for (int i = oldSize; i < all.size(); i++) {
+                        InspectRecord record = all.get(i);
+                        addTableRow(
+                                record.getImportId(),
+                                record.getImportDate(),
+                                record.getVendor(),
+                                record.getProduct(),
+                                record.getStandard(),
+                                record.getPackageComplete(),
+                                record.getVector(),
+                                record.getPackageLabel(),
+                                record.getQuantity(),
+                                record.getValidDate(),
+                                record.getPalletComplete(),
+                                record.getCoa(),
+                                record.getNote(),
+                                record.getPlace(),
+                                record.getInspectorStaff(),
+                                record.getConfirmStaff(),
+                                record.getOdor(),
+                                record.getDegree(),
+                                type
+                        );
+                    }
+                });
+            });
         });
     }
     private void onInspectDataReady() {
@@ -425,7 +464,6 @@ public class InspectTable extends BaseActivity {
 
         rowLayout.addView(confirmView);
 
-        // 檢視（eye icon）
         ImageView eyeIcon = new ImageView(this);
         eyeIcon.setImageResource(R.drawable.ic_eye);
         eyeIcon.setContentDescription("檢視細節");
@@ -509,22 +547,31 @@ public class InspectTable extends BaseActivity {
         rowLayout.addView(deleteIcon);
         deleteIcon.setOnClickListener(v -> {
             new AlertDialog.Builder(this)
-                    .setTitle("刪除確認")
-                    .setMessage("進貨資料一併刪除")
-                    .setPositiveButton("確認", (dialog, which) -> {
-                        ConnectDB.deleteImportRecordById(importId, success -> {
-                            if (success) {
-                                Toast.makeText(this, "刪除成功", Toast.LENGTH_SHORT).show();
-                                getInspectData();
-                            } else {
-                                runOnUiThread(() ->
-                                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show()
-                                );
-                            }
-                        });
-                    })
-                    .setNegativeButton("取消", null)
-                    .show();
+                .setTitle("刪除確認")
+                .setMessage("進貨資料一併刪除")
+                .setPositiveButton("確認", (dialog, which) -> {
+                    int qty = Integer.parseInt(amount.replaceAll("[^0-9]", ""));
+                    ConnectDB.adjustQuantity(place, type, vendor, itemName, -qty, successAdj -> {
+                        if (successAdj) {
+                            ConnectDB.deleteImportRecordById(importId, success -> {
+                                runOnUiThread(() -> {
+                                    if (success) {
+                                        Toast.makeText(this, "刪除成功，庫存已更新", Toast.LENGTH_SHORT).show();
+                                        getInspectData();
+                                    } else {
+                                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            });
+                        } else {
+                            runOnUiThread(() ->
+                                    Toast.makeText(this, "刪除失敗：庫存不足，無法扣除", Toast.LENGTH_SHORT).show()
+                            );
+                        }
+                    });
+                })
+                .setNegativeButton("取消", null)
+                .show();
         });
 
         // 建立分隔線
@@ -598,7 +645,10 @@ public class InspectTable extends BaseActivity {
         styleSelected(selected);
         styleUnselected(other1);
         styleUnselected(other2);
-        getInspectData();
+        ConnectDB.listenLatestInspectRecords(type, currentPlace, inspectList -> {
+            DataSource.setInspectRecords(inspectList);
+            runOnUiThread(this::onInspectDataReady);
+        });
     }
 
     private void styleSelected(Button btn) {

@@ -18,6 +18,7 @@ import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 
@@ -95,6 +96,7 @@ public class SettingMain extends BaseActivity {
             EditText startDateInput = dateDialogView.findViewById(R.id.startDate);
             EditText endDateInput = dateDialogView.findViewById(R.id.endDate);
             Spinner vendorSpinner = dateDialogView.findViewById(R.id.vendorSpinner);
+            Spinner placeSpinner = dateDialogView.findViewById(R.id.placeSpinner);
 
             // 日期選擇器
             View.OnClickListener dateClickListener = view -> {
@@ -124,6 +126,17 @@ public class SettingMain extends BaseActivity {
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             vendorSpinner.setAdapter(adapter);
 
+            // 🔹 地點清單
+            List<String> placeList = Arrays.asList("全部地點", "本廠", "倉庫", "線西");
+
+            ArrayAdapter<String> placeAdapter = new ArrayAdapter<>(
+                    this,
+                    android.R.layout.simple_spinner_item,
+                    placeList
+            );
+            placeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            placeSpinner.setAdapter(placeAdapter);
+
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle("選擇日期區間")
                     .setView(dateDialogView)
@@ -138,24 +151,27 @@ public class SettingMain extends BaseActivity {
                     String startDate = startDateInput.getText().toString().trim();
                     String endDate = endDateInput.getText().toString().trim();
                     String selectedVendor = vendorSpinner.getSelectedItem().toString();
+                    String selectedPlace = placeSpinner.getSelectedItem().toString();
 
                     if (startDate.isEmpty() || endDate.isEmpty()) {
                         Toast.makeText(this, "請選擇開始與結束日期", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
-                    // 🔹 呼叫匯出功能 (區分是否選擇廠商)
-                    if ("全部廠商".equals(selectedVendor)) {
-                        ConnectDB.exportDataToExcel(this, startDate, endDate, "", (success, message) -> {
-                            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-                            if (success) dialog.dismiss();
-                        });
-                    } else {
-                        ConnectDB.exportDataToExcel(this, startDate, endDate, selectedVendor, (success, message) -> {
-                            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-                            if (success) dialog.dismiss();
-                        });
+                    if ("全部地點".equals(selectedPlace)) {
+                        selectedPlace = "";
                     }
+
+                    if ("全部廠商".equals(selectedPlace)) {
+                        selectedVendor = "";
+                    }
+
+                    // 🔹 呼叫匯出功能 (區分是否選擇廠商)
+                    ConnectDB.exportDataToExcel(this, startDate, endDate, selectedVendor, selectedPlace, (success, message) -> {
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                        if (success) dialog.dismiss();
+                    });
+
                 });
             });
 

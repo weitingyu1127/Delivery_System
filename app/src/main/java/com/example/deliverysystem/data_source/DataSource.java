@@ -89,7 +89,6 @@ public class DataSource {
     public static void setUnits(List<String> list) {
         units.clear();
 
-        // 如果傳進來的只有一個大字串 → 自動拆分
         if (list.size() == 1 && list.get(0).startsWith("[") && list.get(0).endsWith("]")) {
             String joined = list.get(0).substring(1, list.get(0).length() - 1); // 去掉 []
             String[] splitUnits = joined.split(",\\s*"); // 依逗號切割
@@ -99,8 +98,6 @@ public class DataSource {
         } else {
             units.addAll(list);
         }
-
-        Log.d("DataSource", "Units set: " + units);
     }
 
     public static List<String> getUnits() {

@@ -112,7 +112,6 @@ public class ImportTable extends BaseActivity {
             }
         });
 
-        // 4. 預設顯示全部
         filterTableByProduct("請選擇產品");
     }
 
@@ -126,7 +125,8 @@ public class ImportTable extends BaseActivity {
                         record.getVendor(),
                         record.getProduct(),
                         record.getQuantity(),
-                        record.getPlace()
+                        record.getPlace(),
+                        record.getType()
                 );
             }
         }
@@ -141,7 +141,8 @@ public class ImportTable extends BaseActivity {
                         record.getVendor(),
                         record.getProduct(),
                         record.getQuantity(),
-                        record.getPlace()
+                        record.getPlace(),
+                        record.getType()
                 );
             }
         }
@@ -151,7 +152,7 @@ public class ImportTable extends BaseActivity {
         tableLayout.removeAllViews();
     }
 
-    private void addTableRow(String importId, String date, String vendorName, String itemName, String summaryAmount, String place) {
+    private void addTableRow(String importId, String date, String vendorName, String itemName, String summaryAmount, String place, String type) {
         LinearLayout tableLayout = findViewById(R.id.importTable);
 
         LinearLayout rowLayout = new LinearLayout(this);
@@ -166,6 +167,7 @@ public class ImportTable extends BaseActivity {
         int padding = 8;
 
         // 建立 Cell 方法（TextView）
+        TextView tableType = createCell(type, 0.5f, textSize, padding);
         TextView tableDate = createCell(date, 0.5f, textSize, padding);
         TextView tableVendor = createCell(vendorName, 0.5f, textSize, padding);
         TextView tableItem = createCell(itemName, 0.5f, textSize, padding);
@@ -192,20 +194,32 @@ public class ImportTable extends BaseActivity {
 
         // 放入容器
         btnContainer.addView(btnDelete);
-
         btnDelete.setOnClickListener(v -> {
             showDeleteDialog(vendorName, itemName, summaryAmount, () -> {
-                ConnectDB.deleteImportRecordById(String.valueOf(importId), success -> {
-                    if (success) {
-                        tableLayout.removeView(rowLayout);
+                int qty = Integer.parseInt(summaryAmount.replaceAll("[^0-9]", ""));
+                ConnectDB.adjustQuantity(place, type, vendorName, itemName, -qty, successAdj -> {
+                    if (successAdj) {
+                        ConnectDB.deleteImportRecordById(importId, success -> {
+                            runOnUiThread(() -> {
+                                if (success) {
+                                    Toast.makeText(this, "刪除成功，庫存已更新", Toast.LENGTH_SHORT).show();
+                                    getImportData();
+                                } else {
+                                    Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        });
                     } else {
-                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show();
+                        runOnUiThread(() ->
+                            Toast.makeText(this, "刪除失敗：庫存不足，無法扣除", Toast.LENGTH_SHORT).show()
+                        );
                     }
                 });
             });
         });
 
         // 加入所有欄位到該列
+        rowLayout.addView(tableType);
         rowLayout.addView(tableDate);
         rowLayout.addView(tableVendor);
         rowLayout.addView(tableItem);
@@ -213,15 +227,12 @@ public class ImportTable extends BaseActivity {
         rowLayout.addView(tablePlace);
         rowLayout.addView(btnContainer);
 
-        // 建立分隔線
         View divider = new View(this);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 1);
         dividerParams.setMargins(12, 0, 12, 0);
         divider.setLayoutParams(dividerParams);
         divider.setBackgroundColor(Color.parseColor("#999999"));
-
-        // 加入列與分隔線
         tableLayout.addView(rowLayout);
         tableLayout.addView(divider);
     }

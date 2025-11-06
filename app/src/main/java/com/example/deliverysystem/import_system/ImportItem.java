@@ -1,5 +1,6 @@
 package com.example.deliverysystem.import_system;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -29,6 +30,9 @@ import com.example.deliverysystem.data_source.ConnectDB;
 import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 import com.example.deliverysystem.data_source.VendorInfo;
+import com.example.deliverysystem.inspect_system.InspectDetail;
+import com.example.deliverysystem.inspect_system.InspectMain;
+import com.example.deliverysystem.inspect_system.InspectTable;
 import com.google.android.flexbox.AlignSelf;
 import com.google.android.flexbox.FlexboxLayout;
 
@@ -87,11 +91,10 @@ public class ImportItem extends AppCompatActivity {
         float dp = getResources().getDisplayMetrics().density;
         int gap = (int) (12 * dp);
 
-        // 每個 row 取等寬（約 48%），兩個剛好一排
         FlexboxLayout.LayoutParams rowParams = new FlexboxLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT);
         rowParams.setMargins(gap, gap, gap, gap);
-        rowParams.setFlexBasisPercent(0.47f);        // ★ 關鍵：等寬
+        rowParams.setFlexBasisPercent(0.47f);
 
 
         LinearLayout row = new LinearLayout(this);
@@ -108,7 +111,6 @@ public class ImportItem extends AppCompatActivity {
         iconParams.setMargins(0, 0, (int)(20*dp), 0);
         row.addView(icon, iconParams);
 
-        // 用 weight 撐開，不要固定寬度
         TextView tv = new TextView(this);
         tv.setText(product);
         tv.setTextSize(20f);
@@ -128,7 +130,7 @@ public class ImportItem extends AppCompatActivity {
         qtyInput.setText("0");
         qtyInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         qtyInput.setGravity(Gravity.CENTER);
-        qtyInput.setWidth((int)(60*dp));
+        qtyInput.setWidth((int)(120*dp));
         qtyInput.setHeight((int)(40*dp));
         qtyInput.setBackgroundColor(Color.parseColor("#DDDDDD"));
         qtyInput.setPadding((int)(10*dp), 0, (int)(10*dp), 0);
@@ -144,7 +146,6 @@ public class ImportItem extends AppCompatActivity {
         DataSource.setupUnitSpinner(this, unitSpinner, null);
         row.addView(unitSpinner);
 
-        // 數量控制
         btnMinus.setOnClickListener(v -> {
             int qty = Integer.parseInt(qtyInput.getText().toString());
             if (qty > 0) qtyInput.setText(String.valueOf(qty - 1));
@@ -165,7 +166,6 @@ public class ImportItem extends AppCompatActivity {
     private void showSubmitButton(String type, String selectedVendor) {
         FrameLayout btnContainer = findViewById(R.id.btn_container);
 
-        // 如果 btnSubmit 已經有 parent，必須先從之前的 parent 移除
         if (btnSubmit != null && btnSubmit.getParent() != null) {
             ((ViewGroup) btnSubmit.getParent()).removeView(btnSubmit);
         }
@@ -177,37 +177,32 @@ public class ImportItem extends AppCompatActivity {
             btnSubmit.setTypeface(null, Typeface.BOLD);
             btnSubmit.setTextColor(Color.WHITE);
 
-            // 設定圓角背景
             GradientDrawable drawable = new GradientDrawable();
             drawable.setColor(Color.parseColor("#F8B272"));
             drawable.setCornerRadius(50);
             btnSubmit.setBackground(drawable);
 
-            // 按鈕尺寸與對齊方式（靠右）
             FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(267, 80);
-            btnParams.gravity = Gravity.END; // 靠右
+            btnParams.gravity = Gravity.END;
             btnParams.topMargin = 50;
             btnSubmit.setLayoutParams(btnParams);
-
             btnSubmit.setOnClickListener(v -> {
                 Spinner importPlace = findViewById(R.id.import_place);
                 String place = importPlace.getSelectedItem() != null
                         ? importPlace.getSelectedItem().toString()
                         : "";
 
-                // 檢查是否還在預設「進貨地點」
                 if ("進貨地點".equals(place) || place.isEmpty()) {
                     Toast.makeText(this, "請選擇進貨地點", Toast.LENGTH_SHORT).show();
-                    return; // 不往下做
+                    return;
                 }
 
-                List<String> summary = new ArrayList<>();
                 boolean hasValidItem = false;
-
-                // ⏰ 抓取當下日期
                 String importDate = LocalDate.now().toString();
 
-                // 🛒 抓取供應商名稱
+                // 收集所有要加入的產品
+                List<Map<String, Object>> productsToAdd = new ArrayList<>();
+
                 for (int i = 0; i < selectedItemInputContainer.getChildCount(); i++) {
                     View view = selectedItemInputContainer.getChildAt(i);
                     if (view instanceof LinearLayout) {
@@ -225,28 +220,40 @@ public class ImportItem extends AppCompatActivity {
                                 hasValidItem = true;
                                 String unitStr = unit.getSelectedItem().toString();
                                 String amountWithUnit = amount + unitStr;
-                                summary.add(product + " - " + amountWithUnit);
 
-                                // ✅ 寫入資料庫
-                                ConnectDB.addImportRecord(type, importDate, vendorName, product, amountWithUnit, place, this, success -> {
-                                    if (!success) {
-                                        Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
-                                    }else{
-                                        ConnectDB.addStorage(this, type, vendorName, product, amount, place);
-                                    }
-                                });
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("product", product);
+                                item.put("quantity", amountWithUnit);
+                                item.put("place", place);
+                                productsToAdd.add(item);
                             }
                         }
                     }
                 }
-                Toast.makeText(this, "所有商品已新增完成", Toast.LENGTH_SHORT).show();
+
                 if (!hasValidItem) {
                     Toast.makeText(this, "請至少填寫一項商品的數量", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                 finish();
-            });
 
+                ConnectDB.addImportRecord(vendorType, importDate, vendorName, productsToAdd,
+                this, success -> {
+                    if (success) {
+                        ConnectDB.addStorage(place, vendorType, vendorName, productsToAdd, successStorage -> {
+                            if (successStorage) {
+                                Toast.makeText(this, "新增完成", Toast.LENGTH_SHORT).show();
+                                Intent intent = new Intent(this, InspectMain.class);
+                                startActivity(intent);
+                            } else {
+                                Toast.makeText(this, "庫存更新失敗", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                        finish();
+                    } else {
+                        Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
         }
         btnContainer.removeAllViews();
         btnContainer.addView(btnSubmit);
