@@ -31,10 +31,13 @@ import com.example.deliverysystem.data_source.DataSource;
 import com.example.deliverysystem.R;
 import com.example.deliverysystem.data_source.VendorInfo;
 import com.example.deliverysystem.setting_system.SettingMain;
+import com.example.deliverysystem.utility.Patterns;
+import com.example.deliverysystem.utility.Tools;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,21 +46,34 @@ import java.util.Map;
 import java.util.Set;
 
 public class InspectTable extends BaseActivity {
+    /** 廠商類型(原or物)*/
     private String type;
-    private String currentPlace = "本廠";
+
+    /** 進貨紀錄Table */
+    ViewGroup inspectTable;
+    
+    /** 日期選擇 */
+    TextView selectedDate;
+
+    /** 選擇進貨地點 */
+    private String currentPlace = "本廠"; // 預設本廠
+
+    Map<String, Button> placeMap = new HashMap<>();
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 設定不同Table
         type = getIntent().getStringExtra("type");
         if ("物料".equals(type)) {
             setContentView(R.layout.inspect_material_table);
         } else if ("原料".equals(type)) {
             setContentView(R.layout.inspect_ingredient_table);
         }
+        inspectTable = findViewById(R.id.inspectTable);
 
-        TextView textSelectedDate = findViewById(R.id.date_text);
+        // 日期選擇
+        selectedDate = findViewById(R.id.date_text);
         ImageView calendarIcon = findViewById(R.id.calendar_icon);
-
         View.OnClickListener dateClickListener = v -> {
             final Calendar calendar = Calendar.getInstance();
             int year = calendar.get(Calendar.YEAR);
@@ -65,177 +81,185 @@ public class InspectTable extends BaseActivity {
             int day = calendar.get(Calendar.DAY_OF_MONTH);
 
             DatePickerDialog datePickerDialog = new DatePickerDialog(
-                    this,
-                    (view, selectedYear, selectedMonth, selectedDay) -> {
-                        // 補零處理，selectedMonth + 1 是因為從 0 開始
-                        String selectedDate = String.format(Locale.TAIWAN, "%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay);
-                        textSelectedDate.setText(selectedDate);
-                        textSelectedDate.setTextColor(getResources().getColor(R.color.black));
-                        textSelectedDate.setTypeface(null, Typeface.NORMAL);
-                    },
-                    year, month, day
+                this,
+                (view, selectedYear, selectedMonth, selectedDay) -> {
+                    selectedDate.setText(String.format(Locale.TAIWAN, "%04d-%02d-%02d", selectedYear, selectedMonth + 1, selectedDay));
+                    selectedDate.setTextColor(getResources().getColor(R.color.black));
+                    selectedDate.setTypeface(null, Typeface.NORMAL);
+                },
+                year, month, day
             );
             datePickerDialog.show();
         };
-        // 點擊文字或圖示都可以觸發日期選擇器
-        textSelectedDate.setOnClickListener(dateClickListener);
+        selectedDate.setOnClickListener(dateClickListener);
         calendarIcon.setOnClickListener(dateClickListener);
 
+        // 搜尋Button
         Button searchBtn = findViewById(R.id.btnSearch);
         searchBtn.setOnClickListener(v -> {
-            Spinner vendorSp    = findViewById(R.id.spinnerVendor);
-            Spinner productSp   = findViewById(R.id.spinnerProduct);
+            Spinner vendorSp  = findViewById(R.id.spinnerVendor);
+            Spinner productSp = findViewById(R.id.spinnerProduct);
             Spinner inspectorSp = findViewById(R.id.spinnerInspector);
             Spinner confirmerSp = findViewById(R.id.spinnerConfirmPerson);
-            TextView dateTv     = findViewById(R.id.date_text);
-            String vendor    = vendorSp.getSelectedItemPosition()    == 0 ? "" : vendorSp.getSelectedItem().toString();
-            String product   = productSp.getSelectedItemPosition()   == 0 ? "" : productSp.getSelectedItem().toString();
+            String vendor = vendorSp.getSelectedItemPosition() == 0 ? "" : vendorSp.getSelectedItem().toString();
+            String product = productSp.getSelectedItemPosition() == 0 ? "" : productSp.getSelectedItem().toString();
             String inspector = inspectorSp.getSelectedItemPosition() == 0 ? "" : inspectorSp.getSelectedItem().toString();
             String confirmer = confirmerSp.getSelectedItemPosition() == 0 ? "" : confirmerSp.getSelectedItem().toString();
-            String date      = "選擇進貨日期".contentEquals(dateTv.getText()) ? "" : dateTv.getText().toString();
-
-            fetchFilteredRecords(type, vendor, product, inspector, confirmer, date, currentPlace);
+            String date = "選擇進貨日期".contentEquals(selectedDate.getText()) ? "" : selectedDate.getText().toString();
+            filterRecords(type, vendor, product, inspector, confirmer, date, currentPlace);
         });
 
+        // 地點Button
         Button btnA = findViewById(R.id.btn_place_A);
         Button btnB = findViewById(R.id.btn_place_B);
         Button btnC = findViewById(R.id.btn_place_C);
-
+        btnA.setTag("本廠");
+        btnB.setTag("倉庫");
+        btnC.setTag("線西");
+        placeMap.put("本廠", btnA);
+        placeMap.put("倉庫", btnB);
+        placeMap.put("線西", btnC);
         View.OnClickListener placeClick = v -> {
-            if (v.getId() == R.id.btn_place_A) {
-                selectPlace("本廠", btnA, btnB, btnC);
-            } else if (v.getId() == R.id.btn_place_B) {
-                selectPlace("倉庫", btnB, btnA, btnC);
-            } else if (v.getId() == R.id.btn_place_C) {
-                selectPlace("線西", btnC, btnA, btnB);
-            }
+            currentPlace = (String) v.getTag();
+            changePlace(currentPlace);
         };
         btnA.setOnClickListener(placeClick);
         btnB.setOnClickListener(placeClick);
         btnC.setOnClickListener(placeClick);
-        selectPlace("本廠", btnA, btnB, btnC);
+        changePlace(currentPlace);
 
-        setupLoadMoreButton();
+        // 載入更多Btn
+        loadButton();
+        employeeSpinner(R.id.spinnerInspector, DataSource.getInspector(), "驗收人員","name");
+        employeeSpinner(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "確認人員","name");
     }
-
+    /** 重新加載 */
     protected void onResume() {
         super.onResume();
-        getInspectData();
+        getInspectData(true);
     }
-    private void getInspectData() {
-        ConnectDB.getInspectRecords(type, currentPlace, inspectList -> {
-            DataSource.setInspectRecords(inspectList);
-        });
-    }
-    private void setupLoadMoreButton() {
-        Button loadMoreBtn = findViewById(R.id.btnLoadMore);
-        loadMoreBtn.setOnClickListener(v -> {
-            ConnectDB.getInspectRecords(type, currentPlace, moreRecords -> {
-                List<InspectRecord> all = DataSource.getInspectRecords();
-                int oldSize = all.size();
-                all.addAll(moreRecords);
-                DataSource.setInspectRecords(all);
 
+    /** 取得驗收紀錄 */
+    private void getInspectData(boolean firstLoad) {
+        ConnectDB.loadInspectRecords(type, currentPlace, firstLoad, records -> {
+            if (firstLoad) {
+                // 第一次 or 切換地點
+                DataSource.setInspectRecords(records);
+                runOnUiThread(this::onInspectDataReady);
+            } else {
+                // 載入更多
+                List<InspectRecord> all = DataSource.getInspectRecords();
+                all.addAll(records);
+                DataSource.setInspectRecords(all);
                 runOnUiThread(() -> {
-                    for (int i = oldSize; i < all.size(); i++) {
-                        InspectRecord record = all.get(i);
+                    for (int i = all.size(); i < all.size(); i++) {
+                        InspectRecord data = all.get(i);
                         addTableRow(
-                                record.getImportId(),
-                                record.getImportDate(),
-                                record.getVendor(),
-                                record.getProduct(),
-                                record.getStandard(),
-                                record.getPackageComplete(),
-                                record.getVector(),
-                                record.getPackageLabel(),
-                                record.getQuantity(),
-                                record.getValidDate(),
-                                record.getPalletComplete(),
-                                record.getCoa(),
-                                record.getNote(),
-                                record.getPlace(),
-                                record.getInspectorStaff(),
-                                record.getConfirmStaff(),
-                                record.getOdor(),
-                                record.getDegree(),
+                                data.getImportId(),
+                                data.getImportDate(),
+                                data.getVendor(),
+                                data.getProduct(),
+                                data.getStandard(),
+                                data.getPackageComplete(),
+                                data.getVector(),
+                                data.getPackageLabel(),
+                                data.getQuantity(),
+                                data.getValidDate(),
+                                data.getPalletComplete(),
+                                data.getCoa(),
+                                data.getNote(),
+                                data.getPlace(),
+                                data.getInspectorStaff(),
+                                data.getConfirmStaff(),
+                                data.getOdor(),
+                                data.getDegree(),
                                 type
                         );
                     }
                 });
-            });
+            }
         });
     }
+
+    /** 加載 Button */
+    private void loadButton() {
+        Button loadMoreBtn = findViewById(R.id.btnLoadMore);
+        loadMoreBtn.setOnClickListener(v -> {
+            getInspectData(false);
+        });
+    }
+
+    /** 重新渲染驗收紀錄 */
     private void onInspectDataReady() {
-        clearTable();
+        Tools.clearTable(inspectTable);
         setupSpinner(type);
         List<InspectRecord> records = DataSource.getInspectRecords();
         for (InspectRecord record : records) {
             if ("原料".equals(type)) {
                 addTableRow(
-                        record.getImportId(),
-                        record.getImportDate(),
-                        record.getVendor(),
-                        record.getProduct(),
-                        record.getStandard(),
-                        record.getPackageComplete(),
-                        record.getVector(),
-                        record.getPackageLabel(),
-                        record.getQuantity(),
-                        record.getValidDate(),
-                        record.getPalletComplete(),
-                        record.getCoa(),
-                        record.getNote(),
-                        record.getPlace(),
-                        record.getInspectorStaff(),
-                        record.getConfirmStaff(),
-                        record.getOdor(),
-                        record.getDegree(),
-                        type
+                    record.getImportId(),
+                    record.getImportDate(),
+                    record.getVendor(),
+                    record.getProduct(),
+                    record.getStandard(),
+                    record.getPackageComplete(),
+                    record.getVector(),
+                    record.getPackageLabel(),
+                    record.getQuantity(),
+                    record.getValidDate(),
+                    record.getPalletComplete(),
+                    record.getCoa(),
+                    record.getNote(),
+                    record.getPlace(),
+                    record.getInspectorStaff(),
+                    record.getConfirmStaff(),
+                    record.getOdor(),
+                    record.getDegree(),
+                    type
                 );
             } else {
                 addTableRow(
-                        record.getImportId(),
-                        record.getImportDate(),
-                        record.getVendor(),
-                        record.getProduct(),
-                        record.getStandard(),
-                        record.getPackageComplete(),
-                        record.getVector(),
-                        record.getPackageLabel(),
-                        record.getQuantity(),
-                        record.getValidDate(),
-                        record.getPalletComplete(),
-                        record.getCoa(),
-                        record.getNote(),
-                        record.getPlace(),
-                        record.getInspectorStaff(),
-                        record.getConfirmStaff(),
-                        null,
-                        null,
-                        type
+                    record.getImportId(),
+                    record.getImportDate(),
+                    record.getVendor(),
+                    record.getProduct(),
+                    record.getStandard(),
+                    record.getPackageComplete(),
+                    record.getVector(),
+                    record.getPackageLabel(),
+                    record.getQuantity(),
+                    record.getValidDate(),
+                    record.getPalletComplete(),
+                    record.getCoa(),
+                    record.getNote(),
+                    record.getPlace(),
+                    record.getInspectorStaff(),
+                    record.getConfirmStaff(),
+                    null,
+                    null,
+                    type
                 );
             }
         }
     }
 
-    private void clearTable() {
-        ViewGroup tableLayout = findViewById(R.id.inspectTable);
-        tableLayout.removeAllViews();
-    }
-    private void fetchFilteredRecords(String type, String vendor, String product, String inspector, String confirmer, String date, String place) {
-        clearTable();
+    /** 篩選 */
+    private void filterRecords(String type, String vendor, String product, String inspector, String confirmer, String date, String place) {
+        Tools.clearTable(inspectTable);
         ConnectDB.getFilteredInspectRecords(type, vendor, product, inspector, confirmer, date, place, records -> {
             DataSource.setInspectRecords(records);
             runOnUiThread(this::onInspectDataReady);
-            TextView textSelectedDate = findViewById(R.id.date_text);
-            textSelectedDate.setText("選擇進貨日期");
-            textSelectedDate.setTextColor(Color.parseColor("#000000"));
+            selectedDate.setText("選擇進貨日期");
+            selectedDate.setTextColor(Color.parseColor("#000000"));
         });
     }
+
+    /** 下拉選單: 廠商 & 商品 */
     private void setupSpinner(String type) {
         Spinner vendorSpinner = findViewById(R.id.spinnerVendor);
         Spinner productSpinner = findViewById(R.id.spinnerProduct);
 
+        // 取得該 type 對應的廠商
         List<String> vendorList = new ArrayList<>();
         vendorList.add("選擇廠商");
 
@@ -245,99 +269,79 @@ public class InspectTable extends BaseActivity {
             }
         }
 
-        ArrayAdapter<String> vendorAdapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, vendorList
-        );
-        vendorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> vendorAdapter = createAdapter(vendorList);
         vendorSpinner.setAdapter(vendorAdapter);
 
-        Set<String> allProductsSet = new LinkedHashSet<>();
+        // 建立產品清單
+        List<String> allProductList = new ArrayList<>();
+        allProductList.add("選擇產品");
+
+        Set<String> productSet = new LinkedHashSet<>();
         for (VendorInfo info : DataSource.getVendorProductMap().values()) {
             if (type.equals(info.getType())) {
-                allProductsSet.addAll(info.getProducts());
+                productSet.addAll(info.getProducts());
             }
         }
-        List<String> allProducts = new ArrayList<>();
-        allProducts.add("選擇產品");
-        allProducts.addAll(allProductsSet);
+        allProductList.addAll(productSet);
 
-        ArrayAdapter<String> productAdapter =
-                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, allProducts);
-        productAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> productAdapter = createAdapter(allProductList);
         productSpinner.setAdapter(productAdapter);
 
+        // 動態更新選單: 廠商 → 產品
         vendorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedVendor = vendorSpinner.getSelectedItem().toString();
-
-                Set<String> uniq = new LinkedHashSet<>();
+                List<String> newProducts = new ArrayList<>();
+                newProducts.add("選擇產品");
                 if ("選擇廠商".equals(selectedVendor)) {
-                    for (VendorInfo info : DataSource.getVendorProductMap().values()) {
-                        if (type.equals(info.getType())) {
-                            uniq.addAll(info.getProducts());
-                        }
-                    }
+                    newProducts.addAll(productSet); // 所有產品
                 } else {
-                    uniq.addAll(DataSource.getProductsByVendor(selectedVendor));
+                    newProducts.addAll(DataSource.getProductsByVendor(selectedVendor)); // 該廠商的產品
                 }
-
-                List<String> updated = new ArrayList<>();
-                updated.add("選擇產品");
-                updated.addAll(uniq);
-
+                // 更新選單內容
                 productAdapter.clear();
-                productAdapter.addAll(updated);
+                productAdapter.addAll(newProducts);
                 productAdapter.notifyDataSetChanged();
                 productSpinner.setSelection(0);
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
-
-        setupSpinnerData(R.id.spinnerInspector, DataSource.getInspector(), "", "inspect");
-        setupSpinnerData(R.id.spinnerConfirmPerson, DataSource.getConfirmPerson(), "", "confirm");
     }
 
-    private void setupSpinnerData(int spinnerId, List<Map<String, String>> data, String selectedId, String type) {
+    /** 下拉選單: 驗收 & 確認 */
+    private void employeeSpinner(int spinnerId, List<Map<String, String>> data, String defaultLabel, String name) {
         Spinner spinner = findViewById(spinnerId);
-        setupSpinnerAdapter(spinner, data, selectedId, type);
-    }
-    private void setupSpinnerAdapter(Spinner spinner, List<Map<String, String>> data, String selectedId, String type) {
-        List<String> spinnerDisplayList = new ArrayList<>();
-        if ("inspect".equals(type)) {
-            spinnerDisplayList.add("驗收人員");
-        } else {
-            spinnerDisplayList.add("確認人員");
+
+        List<String> displayList = new ArrayList<>();
+        displayList.add(defaultLabel);
+
+        for (Map<String, String> item : data) {
+            displayList.add(item.get(name));
         }
 
-        // 把 Map 中的 name 加到顯示清單
-        for (Map<String, String> emp : data) {
-            spinnerDisplayList.add(emp.get("name"));
-        }
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, spinnerDisplayList
-        );
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = createAdapter(displayList);
         spinner.setAdapter(adapter);
-
-        if (selectedId != null && !selectedId.trim().isEmpty()) {
-            int position = -1;
-            for (int i = 0; i < data.size(); i++) {
-                if (selectedId.equals(data.get(i).get("id"))) {
-                    position = i + 1; // +1 因為第0項是提示文字
-                    break;
-                }
-            }
-            if (position >= 0) {
-                spinner.setSelection(position);
-            }
-        }
     }
+
+    /** 產生基本 ArrayAdapter */
+    private ArrayAdapter<String> createAdapter(List<String> data) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, data);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
+    }
+
+    /** 更換地點button */
+    private void changePlace(String place){
+        Tools.selectPlace(this, place, placeMap);
+        getInspectData(true);
+    }
+
+    /** 建立Table欄位 */
     private void addTableRow(String importId, String date, String vendor, String itemName, String spec, String packageConfirm, String vector,
                              String packageLabel, String amount, String validDate, String pallet, String COA, String note, String place, String inspector,
                              String confirmed, String odor, String degree, String type) {
-        LinearLayout tableLayout = findViewById(R.id.inspectTable);
 
+        LinearLayout inspectTable = findViewById(R.id.inspectTable);
         LinearLayout rowLayout = new LinearLayout(this);
         rowLayout.setBaselineAligned(false);
         rowLayout.setGravity(Gravity.CENTER_VERTICAL);
@@ -355,18 +359,19 @@ public class InspectTable extends BaseActivity {
         TextView tableVendor = createCell("vendor", vendor, 120, textSize, padding);
         TextView tableItem = createCell("item", itemName, 250, textSize, padding);
         TextView tableSpec = createCell("spec", spec, 250, textSize, padding);
-        View tablePackage = createIconOrTextCell("package", packageConfirm, toCheckIconRes(packageConfirm), 80, textSize, padding);
-        View tableVector = createIconOrTextCell("vector", vector, toCheckIconRes(vector), 80, textSize, padding);
-        View tableLabel = createIconOrTextCell("label", packageLabel, toCheckIconRes(packageLabel), 100, textSize, padding);
+        View tablePackage = createCell("package", packageConfirm, checkIcon(packageConfirm), 80, textSize, padding);
+        View tableVector = createCell("vector", vector, checkIcon(vector), 80, textSize, padding);
+        View tableLabel = createCell("label", packageLabel, checkIcon(packageLabel), 100, textSize, padding);
         TextView tableAmount = createCell("amount", amount, 100, textSize, padding);
-        View tableValidDate = createIconOrTextCell("validDate", validDate, toCheckIconRes(validDate), 120, textSize, padding);
-        View tablePallet = createIconOrTextCell("pallet", pallet, toCheckIconRes(pallet), 80, textSize, padding);
-        View tableCoa = createIconOrTextCell("coa", COA, toCheckIconRes(COA), 80, textSize, padding);
-
+        View tableValidDate = createCell("validDate", validDate, checkIcon(validDate), 120, textSize, padding);
+        View tablePallet = createCell("pallet", pallet, checkIcon(pallet), 80, textSize, padding);
+        View tableCoa = createCell("coa", COA, checkIcon(COA), 80, textSize, padding);
         String noteText = (note == null || note.trim().isEmpty() || note.equalsIgnoreCase("null")) ? "" : note;
         TextView tableNote = createCell("note",noteText, 200, textSize, padding);
         TextView tablePlace = createCell("place",place, 80, textSize, padding);
         View inspectorView;
+
+        // 驗收btn
         if (inspector == null || inspector.trim().isEmpty() || inspector.equalsIgnoreCase("null")) {
             Button inspectorBtn = new Button(this);
             inspectorBtn.setText("驗收");
@@ -379,29 +384,25 @@ public class InspectTable extends BaseActivity {
                             TypedValue.COMPLEX_UNIT_DIP, 100, getResources().getDisplayMetrics()),
                     ViewGroup.LayoutParams.WRAP_CONTENT
             ));
-            inspectorBtn.setOnClickListener(v -> {
-                openInspectDetail(
-                        "edit", type, importId, date,
-                        vendor, itemName, null,
-                        null, null, null,
-                        amount, null, null, null,
-                        null, place, null, null,
-                        null, null, "inspector"
-                );
-            });
+            Bundle paramsInspector = buildParams(
+                    "edit", type, importId, date, vendor, itemName, null, null, null, 
+                    null, amount,null, null, null, null, place, null, 
+                    null, null, null, "inspector"               
+            );
+            Tools.navigator(inspectorBtn, this, InspectDetail.class, false, paramsInspector);
             inspectorView = inspectorBtn;
         } else {
             inspectorView = createCell("inspector", inspector, 100, textSize, padding);
         }
-        // 加入所有欄位到該列
         rowLayout.addView(tableDate);
         rowLayout.addView(tableVendor);
         rowLayout.addView(tableItem);
         rowLayout.addView(inspectorView);
         rowLayout.addView(tableSpec);
         rowLayout.addView(tablePackage);
+        // 異味 & 溫度
         if("原料".equals(type)){
-            View tableOdor = createIconOrTextCell("odor", odor, toCheckIconRes(odor), 80, textSize, padding);
+            View tableOdor = createCell("odor", odor, checkIcon(odor), 80, textSize, padding);
             rowLayout.addView(tableOdor);
         }
         rowLayout.addView(tableVector);
@@ -418,6 +419,7 @@ public class InspectTable extends BaseActivity {
         rowLayout.addView(tableNote);
         rowLayout.addView(tablePlace);
 
+        // 確認btn
         View confirmView;
         if (confirmed == null || confirmed.trim().isEmpty() || confirmed.equalsIgnoreCase("null")) {
             Button confirmBtn = new Button(this);
@@ -431,39 +433,24 @@ public class InspectTable extends BaseActivity {
                             TypedValue.COMPLEX_UNIT_DIP, 100, getResources().getDisplayMetrics()),
                     ViewGroup.LayoutParams.WRAP_CONTENT
             ));
-            confirmBtn.setOnClickListener(v -> {
-                LayoutInflater inflater = LayoutInflater.from(InspectTable.this);
-                View dialogView = inflater.inflate(R.layout.dialog_password, null);
-                EditText editPassword = dialogView.findViewById(R.id.editPassword);
+            // 組合參數
+            Bundle params = buildParams(
+                    "edit", type, importId, date,
+                    vendor, itemName, spec,
+                    packageConfirm, vector, packageLabel,
+                    amount, validDate, pallet, COA,
+                    note, place, inspector, confirmed,
+                    odor, degree,"confirm"
+            );
 
-                new AlertDialog.Builder(InspectTable.this)
-                        .setTitle("密碼驗證")
-                        .setView(dialogView)
-                        .setPositiveButton("確定", (dialog, which) -> {
-                            String password = editPassword.getText().toString().trim();
-                            if (DataSource.getPasswords().contains(password)) {
-                                openInspectDetail(
-                                        "edit", type, importId, date,
-                                        vendor, itemName, spec,
-                                        packageConfirm, vector, packageLabel,
-                                        amount, validDate, pallet, COA,
-                                        note, place, inspector, confirmed,
-                                        odor, degree, "confirm"
-                                );
-                            } else {
-                                Toast.makeText(InspectTable.this, "密碼錯誤", Toast.LENGTH_SHORT).show(); // 🔧 修正 this
-                            }
-                        })
-                        .setNegativeButton("取消", null)
-                        .show();
-            });
+            Tools.navigator(confirmBtn, this, InspectDetail.class, true, params);
             confirmView = confirmBtn;
         } else {
             confirmView = createCell("confirmed",confirmed, 100, textSize, padding);
         }
-
         rowLayout.addView(confirmView);
 
+        // 檢視btn
         ImageView eyeIcon = new ImageView(this);
         eyeIcon.setImageResource(R.drawable.ic_eye);
         eyeIcon.setContentDescription("檢視細節");
@@ -477,19 +464,21 @@ public class InspectTable extends BaseActivity {
         eyeIconParams.setMargins(10, 0, 10, 0);
         eyeIconParams.gravity = Gravity.CENTER_VERTICAL;
         eyeIcon.setLayoutParams(eyeIconParams);
-
         eyeIcon.setOnClickListener(v -> {
-            openInspectDetail(
+            Bundle paramsView = buildParams(
                     "view", type, importId, date,
                     vendor, itemName, spec,
                     packageConfirm, vector, packageLabel,
                     amount, validDate, pallet, COA,
                     note, place, inspector, confirmed,
-                    odor, degree, "confirm"
+                    odor, degree,
+                    "confirm"
             );
+            Tools.navigator(eyeIcon, this, InspectDetail.class, false, paramsView);
         });
         rowLayout.addView(eyeIcon);
 
+        // 修改btn
         ImageView editIcon = new ImageView(this);
         editIcon.setImageResource(R.drawable.ic_edit);
         editIcon.setContentDescription("編輯");
@@ -503,34 +492,20 @@ public class InspectTable extends BaseActivity {
         editIconParams.gravity = Gravity.CENTER_VERTICAL;
         editIcon.setLayoutParams(editIconParams);
         editIcon.setOnClickListener(v -> {
-            LayoutInflater inflater = LayoutInflater.from(InspectTable.this);
-            View dialogView = inflater.inflate(R.layout.dialog_password, null);
-            EditText editPassword = dialogView.findViewById(R.id.editPassword);
-
-            new AlertDialog.Builder(InspectTable.this)
-                    .setTitle("密碼驗證")
-                    .setView(dialogView)
-                    .setPositiveButton("確定", (dialog, which) -> {
-                        String password = editPassword.getText().toString().trim();
-                        if (DataSource.getPasswords().contains(password)) {
-                            openInspectDetail(
-                                    "edit", type, importId, date,
-                                    vendor, itemName, spec,
-                                    packageConfirm, vector, packageLabel,
-                                    amount, validDate, pallet, COA,
-                                    note, place, inspector, confirmed,
-                                    odor, degree, "confirm"
-                            );
-                        } else {
-                            Toast.makeText(InspectTable.this, "密碼錯誤", Toast.LENGTH_SHORT).show();
-                        }
-                    })
-                    .setNegativeButton("取消", null)
-                    .show();
+            Bundle paramsEdit = buildParams(
+                    "edit", type, importId, date,
+                    vendor, itemName, spec,
+                    packageConfirm, vector, packageLabel,
+                    amount, validDate, pallet, COA,
+                    note, place, inspector, confirmed,
+                    odor, degree,
+                    "confirm"
+            );
+            Tools.navigator(editIcon, this, InspectDetail.class, true, paramsEdit);
         });
-
         rowLayout.addView(editIcon);
 
+        //  刪除btn
         ImageView deleteIcon = new ImageView(this);
         deleteIcon.setImageResource(R.drawable.ic_delete);
         deleteIcon.setContentDescription("刪除");
@@ -556,16 +531,16 @@ public class InspectTable extends BaseActivity {
                             ConnectDB.deleteImportRecordById(importId, success -> {
                                 runOnUiThread(() -> {
                                     if (success) {
-                                        Toast.makeText(this, "刪除成功，庫存已更新", Toast.LENGTH_SHORT).show();
-                                        getInspectData();
+                                        Tools.showToast(this,"刪除成功，庫存已更新");
+                                        getInspectData(true);
                                     } else {
-                                        Toast.makeText(this, "刪除失敗", Toast.LENGTH_SHORT).show();
+                                        Tools.showToast(this,"刪除失敗");
                                     }
                                 });
                             });
                         } else {
                             runOnUiThread(() ->
-                                    Toast.makeText(this, "刪除失敗：庫存不足，無法扣除", Toast.LENGTH_SHORT).show()
+                                Tools.showToast(this,"刪除失敗：庫存不足")
                             );
                         }
                     });
@@ -573,18 +548,7 @@ public class InspectTable extends BaseActivity {
                 .setNegativeButton("取消", null)
                 .show();
         });
-
-        // 建立分隔線
-        View divider = new View(this);
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 1);
-        dividerParams.setMargins(12, 0, 12, 0);
-        divider.setLayoutParams(dividerParams);
-        divider.setBackgroundColor(Color.parseColor("#999999"));
-
-        // 加入列與分隔線
-        tableLayout.addView(rowLayout);
-        tableLayout.addView(divider);
+        inspectTable.addView(rowLayout);
     }
 
     private TextView createCell(String column, String text, int widthDp, int textSize, int padding) {
@@ -593,9 +557,9 @@ public class InspectTable extends BaseActivity {
         textView.setTextSize(textSize);
         textView.setTextColor(Color.BLACK);
         if ("note".equalsIgnoreCase(column)) {
-            textView.setGravity(Gravity.START | Gravity.CENTER_VERTICAL); // 左對齊 & 垂直置中
+            textView.setGravity(Gravity.START | Gravity.CENTER_VERTICAL); 
         } else {
-            textView.setGravity(Gravity.CENTER); // 其他欄位居中
+            textView.setGravity(Gravity.CENTER); 
         }
         textView.setPadding(padding, padding, padding, padding);
         textView.setTypeface(null, Typeface.NORMAL);
@@ -606,7 +570,8 @@ public class InspectTable extends BaseActivity {
         return textView;
     }
 
-    private int toCheckIconRes(String value) {
+    /** (不)合格icon */
+    private int checkIcon(String value) {
         if (value == null || value.trim().isEmpty() || value.equalsIgnoreCase("null")) {
             return 0;
         }
@@ -620,7 +585,7 @@ public class InspectTable extends BaseActivity {
         }
     }
 
-    private View createIconOrTextCell(String tag, String value, int iconRes, int widthDp, int textSize, int padding) {
+    private View createCell(String tag, String value, int iconRes, int widthDp, int textSize, int padding) {
         int widthPx  = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, getResources().getDisplayMetrics());
         int heightPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 36,    getResources().getDisplayMetrics());
 
@@ -628,7 +593,7 @@ public class InspectTable extends BaseActivity {
             ImageView icon = new ImageView(this);
             icon.setImageResource(iconRes);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(widthPx, heightPx);
-            lp.gravity = Gravity.CENTER_VERTICAL;          // 👈 讓圖示在列中垂直置中
+            lp.gravity = Gravity.CENTER_VERTICAL;
             icon.setLayoutParams(lp);
             icon.setPadding(padding, padding, padding, padding);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -639,66 +604,40 @@ public class InspectTable extends BaseActivity {
             return createCell(tag, value, widthDp, textSize, padding);
         }
     }
-
-    private void selectPlace(String place, Button selected, Button other1, Button other2) {
-        currentPlace = place;
-        styleSelected(selected);
-        styleUnselected(other1);
-        styleUnselected(other2);
-        ConnectDB.listenLatestInspectRecords(type, currentPlace, inspectList -> {
-            DataSource.setInspectRecords(inspectList);
-            runOnUiThread(this::onInspectDataReady);
-        });
-    }
-
-    private void styleSelected(Button btn) {
-        btn.setBackgroundResource(R.drawable.btn_orange);
-        btn.setTextColor(getResources().getColor(android.R.color.white));
-    }
-
-    private void styleUnselected(Button btn) {
-        btn.setBackgroundResource(R.drawable.btn_white);
-        btn.setTextColor(getResources().getColor(android.R.color.black));
-    }
-
-    private void openInspectDetail(
+    /** 建立導轉參數 */
+    private Bundle buildParams(
             String mode, String type, String importId, String date,
             String vendor, String itemName, String spec,
             String packageConfirm, String vector, String packageLabel,
             String amount, String validDate, String pallet, String COA,
             String note, String place, String inspector, String confirmed,
-            String odor, String degree, String staff) {
-
-        Intent intent = new Intent(InspectTable.this, InspectDetail.class);
-        intent.putExtra("mode", mode);
-        intent.putExtra("type", type);
-        intent.putExtra("importId", importId);
-        intent.putExtra("date", date);
-        intent.putExtra("vendor", vendor);
-        intent.putExtra("itemName", itemName);
-        intent.putExtra("spec", spec);
-        intent.putExtra("packageConfirm", packageConfirm);
-        intent.putExtra("vector", vector);
-        intent.putExtra("packageLabel", packageLabel);
-        intent.putExtra("amount", amount);
-        intent.putExtra("validDate", validDate);
-        intent.putExtra("pallet", pallet);
-        intent.putExtra("COA", COA);
-        intent.putExtra("note", note);
-        intent.putExtra("place", place);
-        intent.putExtra("inspector", inspector);
-        intent.putExtra("confirmed", confirmed);
-
+            String odor, String degree,
+            String staff
+    ) {
+        Bundle bundle = new Bundle();
+        bundle.putString("mode", mode);
+        bundle.putString("type", type);
+        bundle.putString("importId", importId);
+        bundle.putString("date", date);
+        bundle.putString("vendor", vendor);
+        bundle.putString("itemName", itemName);
+        bundle.putString("spec", spec);
+        bundle.putString("packageConfirm", packageConfirm);
+        bundle.putString("vector", vector);
+        bundle.putString("packageLabel", packageLabel);
+        bundle.putString("amount", amount);
+        bundle.putString("validDate", validDate);
+        bundle.putString("pallet", pallet);
+        bundle.putString("COA", COA);
+        bundle.putString("note", note);
+        bundle.putString("place", place);
+        bundle.putString("inspector", inspector);
+        bundle.putString("confirmed", confirmed);
         if ("原料".equals(type)) {
-            intent.putExtra("odor", odor);
-            intent.putExtra("degree", degree);
-            if ("view".equals(mode)) {
-                intent.putExtra("view", true); // 只有 view 模式才需要
-            }
+            bundle.putString("odor", odor);
+            bundle.putString("degree", degree);
         }
-
-        intent.putExtra("staff", staff);
-        startActivity(intent);
+        bundle.putString("staff", staff);
+        return bundle;
     }
-
 }

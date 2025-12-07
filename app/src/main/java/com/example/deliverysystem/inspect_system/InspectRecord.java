@@ -5,19 +5,14 @@ import java.util.List;
 
 public class InspectRecord {
 
-    private String import_id;
-    private String importDate, vendor, product, standard, packageComplete, vector,
-            packageLabel, quantity, validDate, palletComplete, coa, note, place,
-            inspectorStaff, confirmStaff;
+    /** 進貨項目 */
+    private String import_id, importDate, vendor, product, standard, packageComplete, vector,
+            packageLabel, quantity, validDate, palletComplete, coa, note, place, inspectorStaff,
+             confirmStaff, odor, degree;
 
-    private String odor;
-    private String degree;
-    private List<String> images;
-//    , List<String> images
-    public InspectRecord(String import_id, String importDate, String vendor, String product, String standard,
-                         String packageComplete, String vector, String packageLabel,
-                         String quantity, String validDate, String palletComplete,
-                         String coa, String note, String place, String inspectorStaff, String confirmStaff, String odor, String degree) {
+    public InspectRecord(String import_id, String importDate, String vendor, String product, String standard, String packageComplete,
+                         String vector, String packageLabel, String quantity, String validDate, String palletComplete, String coa,
+                         String note, String place, String inspectorStaff, String confirmStaff, String odor, String degree) {
         this.import_id = import_id;
         this.importDate = importDate;
         this.vendor = vendor;
@@ -32,14 +27,12 @@ public class InspectRecord {
         this.coa = coa;
         this.note = note;
         this.place = place;
-//        this.images = (images != null) ? images : new ArrayList<>();
         this.inspectorStaff = inspectorStaff;
         this.confirmStaff = confirmStaff;
         this.odor = odor;
         this.degree = degree;
     }
 
-    // ✅ Getter for all fields
     public String getImportId() { return import_id; }
     public String getImportDate() { return importDate; }
     public String getVendor() { return vendor; }
@@ -54,17 +47,8 @@ public class InspectRecord {
     public String getCoa() { return coa; }
     public String getNote() { return note; }
     public String getPlace() { return place; }
-    // ★ 多張圖的取用
-    public List<String> getImages() { return images; }
-
-    // ★ 保留相容方法：回傳第一張（舊程式碼用到的 getPicture() 不用改呼叫點）
-    public String getPicture() {
-        return (images != null && !images.isEmpty()) ? images.get(0) : "";
-    }
-
     public String getInspectorStaff() { return inspectorStaff; }
     public String getConfirmStaff() { return confirmStaff; }
-
     public String getOdor() { return odor; }
     public String getDegree() { return degree; }
 }

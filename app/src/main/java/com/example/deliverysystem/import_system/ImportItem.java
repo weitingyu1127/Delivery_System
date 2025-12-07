@@ -1,5 +1,4 @@
 package com.example.deliverysystem.import_system;
-
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -33,6 +32,8 @@ import com.example.deliverysystem.data_source.VendorInfo;
 import com.example.deliverysystem.inspect_system.InspectDetail;
 import com.example.deliverysystem.inspect_system.InspectMain;
 import com.example.deliverysystem.inspect_system.InspectTable;
+import com.example.deliverysystem.utility.Enum;
+import com.example.deliverysystem.utility.Tools;
 import com.google.android.flexbox.AlignSelf;
 import com.google.android.flexbox.FlexboxLayout;
 
@@ -41,19 +42,29 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class ImportItem extends AppCompatActivity {
-
-    private FlexboxLayout selectedItemInputContainer;
+    /** 產品容器 */
+    private FlexboxLayout itemInputCtn;
+    /** 新增按鈕 */
     private Button btnSubmit;
-    private Map<String, VendorInfo> vendorProductMap;
+    /** 廠商名稱 */
     private String vendorName;
+    /** 廠商類型 */
     private String vendorType;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.import_item);
 
+        // 廠商資訊
+        vendorName = getIntent().getStringExtra("vendor_name");
+        vendorType = DataSource.getTypeByVendor(vendorName);
+        TextView title = findViewById(R.id.import_vendor_title);
+        title.setText(vendorName);
+        itemInputCtn = findViewById(R.id.item_input_ctn);
+
+        // 下拉選單: 地點
         Spinner importPlace = findViewById(R.id.import_place);
-        List<String> placeList = Arrays.asList("進貨地點","本廠", "倉庫", "線西");
+        List<String> placeList = Arrays.asList(Enum.place.getOptions());
         ArrayAdapter<String> placeAdapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
@@ -63,30 +74,23 @@ public class ImportItem extends AppCompatActivity {
         importPlace.setAdapter(placeAdapter);
         importPlace.setSelection(0, false);
 
-        vendorName = getIntent().getStringExtra("vendor_name");
-
-        TextView title = findViewById(R.id.import_vendor_title);
-        title.setText(vendorName);
-
+        // 產品
         List<String> products = DataSource.getProductsByVendor(vendorName);
-        vendorType = DataSource.getTypeByVendor(vendorName);
-
-        selectedItemInputContainer = findViewById(R.id.selectedItemInputContainer);
-
-        vendorProductMap = DataSource.getVendorProductMap();
-
         if (!products.isEmpty()) {
             for (String product : products) {
                 addProductInputRow(product);
             }
-            showSubmitButton(vendorType, vendorName);
+            showSubmitButton();
         }
+
+        // 返回
         ImageView backIcon = findViewById(R.id.back_icon);
         backIcon.setOnClickListener(v -> {
             finish();
         });
     }
 
+    /** 產品Ctn */
     private void addProductInputRow(String product) {
         float dp = getResources().getDisplayMetrics().density;
         int gap = (int) (12 * dp);
@@ -95,7 +99,6 @@ public class ImportItem extends AppCompatActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT);
         rowParams.setMargins(gap, gap, gap, gap);
         rowParams.setFlexBasisPercent(0.47f);
-
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -155,21 +158,17 @@ public class ImportItem extends AppCompatActivity {
             qtyInput.setText(String.valueOf(qty + 1));
         });
 
-        selectedItemInputContainer.addView(row);
+        itemInputCtn.addView(row);
 
         if (btnSubmit != null) {
-            selectedItemInputContainer.removeView(btnSubmit);
-            selectedItemInputContainer.addView(btnSubmit);
+            itemInputCtn.removeView(btnSubmit);
+            itemInputCtn.addView(btnSubmit);
         }
     }
 
-    private void showSubmitButton(String type, String selectedVendor) {
+    /** 新增btn */
+    private void showSubmitButton() {
         FrameLayout btnContainer = findViewById(R.id.btn_container);
-
-        if (btnSubmit != null && btnSubmit.getParent() != null) {
-            ((ViewGroup) btnSubmit.getParent()).removeView(btnSubmit);
-        }
-
         if (btnSubmit == null) {
             btnSubmit = new Button(this);
             btnSubmit.setText("新增");
@@ -193,7 +192,7 @@ public class ImportItem extends AppCompatActivity {
                         : "";
 
                 if ("進貨地點".equals(place) || place.isEmpty()) {
-                    Toast.makeText(this, "請選擇進貨地點", Toast.LENGTH_SHORT).show();
+                    Tools.showToast(this, "請選擇進貨地點");
                     return;
                 }
 
@@ -203,19 +202,17 @@ public class ImportItem extends AppCompatActivity {
                 // 收集所有要加入的產品
                 List<Map<String, Object>> productsToAdd = new ArrayList<>();
 
-                for (int i = 0; i < selectedItemInputContainer.getChildCount(); i++) {
-                    View view = selectedItemInputContainer.getChildAt(i);
+                for (int i = 0; i < itemInputCtn.getChildCount(); i++) {
+                    View view = itemInputCtn.getChildAt(i);
                     if (view instanceof LinearLayout) {
                         LinearLayout row = (LinearLayout) view;
                         if (row.getChildCount() >= 6) {
                             TextView name = (TextView) row.getChildAt(1);
                             EditText qty = (EditText) row.getChildAt(3);
                             Spinner unit = (Spinner) row.getChildAt(5);
-
                             String product = name.getText().toString();
                             String amountStr = qty.getText().toString().trim();
                             int amount = amountStr.isEmpty() ? 0 : Integer.parseInt(amountStr);
-
                             if (amount > 0) {
                                 hasValidItem = true;
                                 String unitStr = unit.getSelectedItem().toString();
@@ -232,7 +229,7 @@ public class ImportItem extends AppCompatActivity {
                 }
 
                 if (!hasValidItem) {
-                    Toast.makeText(this, "請至少填寫一項商品的數量", Toast.LENGTH_SHORT).show();
+                    Tools.showToast(this, "請至少填寫一項商品的數量");
                     return;
                 }
 
@@ -241,16 +238,16 @@ public class ImportItem extends AppCompatActivity {
                     if (success) {
                         ConnectDB.addStorage(place, vendorType, vendorName, productsToAdd, successStorage -> {
                             if (successStorage) {
-                                Toast.makeText(this, "新增完成", Toast.LENGTH_SHORT).show();
+                                Tools.showToast(this, "新增完成");
                                 Intent intent = new Intent(this, InspectMain.class);
                                 startActivity(intent);
                             } else {
-                                Toast.makeText(this, "庫存更新失敗", Toast.LENGTH_SHORT).show();
+                                Tools.showToast(this, "新增失敗: 庫存更新失敗");
                             }
                         });
                         finish();
                     } else {
-                        Toast.makeText(this, "新增失敗", Toast.LENGTH_SHORT).show();
+                        Tools.showToast(this, "新增失敗");
                     }
                 });
             });

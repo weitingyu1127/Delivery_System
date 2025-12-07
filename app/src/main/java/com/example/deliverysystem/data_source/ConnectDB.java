@@ -49,126 +49,8 @@ public class ConnectDB {
     private static ListenerRegistration inspectListener;
     private static DocumentSnapshot lastDoc;
 
-    // === 員工資料：inspector / confirmPerson ===
-    public static void getEmployees(String type, Runnable callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        boolean isConfirm = "confirmPerson".equals(type);
-
-        db.collection("employees")
-                .whereEqualTo("employee_authority", isConfirm)
-                .get()
-                .addOnSuccessListener(qs -> {
-                    List<Map<String, String>> list = new ArrayList<>();
-                    for (DocumentSnapshot doc : qs) {
-                        String id   = doc.getId();
-                        String name = doc.getString("name");
-                        if (name == null) continue;
-                        name = name.trim();
-                        if (name.isEmpty()) continue;
-
-                        Map<String, String> m = new HashMap<>();
-                        m.put("id", id);
-                        m.put("name", name);
-                        list.add(m);
-                    }
-
-                    // 依姓名排序（可省略）
-                    list.sort(Comparator.comparing(m -> m.getOrDefault("name", "")));
-
-                    if (isConfirm) {
-                        DataSource.setConfirmPersons(list);
-                    } else {
-                        DataSource.setInspectors(list);
-                    }
-
-                    if (callback != null) callback.run();
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
-                    if (callback != null) callback.run();
-                });
-    }
-    // === 單位 ===
-    public static void getUnit(Consumer<List<String>> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        db.collection("unit")
-                .document("unit") // 這裡是你的文件名稱（左邊看到 unit → unit）
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        // 取得所有欄位的值
-                        Map<String, Object> data = documentSnapshot.getData();
-                        if (data != null) {
-                            List<String> units = new ArrayList<>();
-                            for (Object value : data.values()) {
-                                units.add(value.toString());
-                            }
-                            callback.accept(units); // 回傳結果
-                        } else {
-                            callback.accept(new ArrayList<>());
-                        }
-                    } else {
-                        callback.accept(new ArrayList<>());
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    callback.accept(new ArrayList<>());
-                });
-    }
-
-    // === 廠商與產品對應資料 ===
-    public static void getVendorProductData(Consumer<Map<String, VendorInfo>> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        Map<String, VendorInfo> vendorMap = new LinkedHashMap<>();
-
-        db.collection("vendors")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        try {
-                            String vendor = doc.getId(); // Document ID 當作 vendor 名
-                            String industry = doc.getString("industry");
-                            String type = doc.getString("type");
-
-                            List<String> productList = (List<String>) doc.get("products");
-                            if (productList == null) productList = new ArrayList<>();
-
-                            VendorInfo info = new VendorInfo(industry, type, productList);
-                            vendorMap.put(vendor, info);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    callback.accept(vendorMap);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("Firestore", "讀取 vendors 失敗：" + e.getMessage(), e);
-                    callback.accept(vendorMap); // 回傳空資料避免卡住
-                });
-    }
-
-    public static void getPasswords(Consumer<List<String>> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("authority_password")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<String> passwordList = new ArrayList<>();
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        String password = doc.getString("password");
-                        if (password != null) {
-                            passwordList.add(password);
-                        }
-                    }
-                    callback.accept(passwordList);
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    callback.accept(new ArrayList<>()); // 出錯時回傳空陣列避免卡住流程
-                });
-    }
-
+    // ===================== 進貨 =====================
+    /** 進貨紀錄 */
     public static void getImportRecords(String vendorName, Consumer<List<ImportRecord>> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         List<ImportRecord> records = new ArrayList<>();
@@ -214,6 +96,49 @@ public class ConnectDB {
                 });
     }
 
+    /** 新增進貨 */
+    public static void addImportRecord(String type, String date, String vendor,
+                                       List<Map<String, Object>> products,
+                                       Context context, Consumer<Boolean> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String today = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
+
+        DocumentReference counterRef = db.collection("import_counters").document(today);
+
+        db.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(counterRef);
+            int lastSeq = 0;
+            if (snapshot.exists()) {
+                Long lastSeqLong = snapshot.getLong("lastSeq");
+                if (lastSeqLong != null) {
+                    lastSeq = lastSeqLong.intValue();
+                }
+            }
+            for (int i = 0; i < products.size(); i++) {
+                lastSeq++;
+                String importId = today + String.format("%02d", lastSeq);
+                Map<String, Object> productData = products.get(i);
+                Map<String, Object> importData = new HashMap<>();
+                importData.put("import_id", importId);
+                importData.put("type", type);
+                importData.put("import_date", date);
+                importData.put("vendor", vendor);
+                importData.put("product", productData.get("product"));
+                importData.put("quantity", productData.get("quantity"));
+                importData.put("place", productData.get("place"));
+                DocumentReference recordRef = db.collection("import_records").document(importId);
+                transaction.set(recordRef, importData);
+            }
+            transaction.set(counterRef, Collections.singletonMap("lastSeq", lastSeq));
+            return null;
+        }).addOnSuccessListener(aVoid -> {
+            new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
+        }).addOnFailureListener(e -> {
+            new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+        });
+    }
+
+    /** 刪除進貨 */
     public static void deleteImportRecordById(String importId, Consumer<Boolean> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("import_records").document(importId)
@@ -227,79 +152,14 @@ public class ConnectDB {
                 });
     }
 
-    public static void deleteProduct(String vendorName, String productName, Consumer<Boolean> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        DocumentReference docRef = db.collection("vendors").document(vendorName);
-
-        docRef.update("products", FieldValue.arrayRemove(productName))
-                .addOnSuccessListener(aVoid -> {
-                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
-                });
-    }
-    public static void addImportRecord(String type, String date, String vendor,
-                                                       List<Map<String, Object>> products,
-                                                       Context context, Consumer<Boolean> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        String today = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
-
-        DocumentReference counterRef = db.collection("import_counters").document(today);
-
-        db.runTransaction(transaction -> {
-            // 1. 讀取/初始化 counter
-            DocumentSnapshot snapshot = transaction.get(counterRef);
-            int lastSeq = 0;
-            if (snapshot.exists()) {
-                Long lastSeqLong = snapshot.getLong("lastSeq");
-                if (lastSeqLong != null) {
-                    lastSeq = lastSeqLong.intValue();
-                }
-            }
-
-            // 2. 為每個產品建立唯一流水號 + doc
-            for (int i = 0; i < products.size(); i++) {
-                lastSeq++;
-
-                String importId = today + String.format("%02d", lastSeq);
-
-                Map<String, Object> productData = products.get(i);
-                Map<String, Object> importData = new HashMap<>();
-                importData.put("import_id", importId);
-                importData.put("type", type);
-                importData.put("import_date", date);
-                importData.put("vendor", vendor);
-                importData.put("product", productData.get("product"));
-                importData.put("quantity", productData.get("quantity"));
-                importData.put("place", productData.get("place"));
-
-                // ✅ 用 Firestore 自動生成的 docId，避免覆蓋
-                DocumentReference recordRef = db.collection("import_records").document(importId);
-                transaction.set(recordRef, importData);
-            }
-
-            // 3. 更新 counter 的最後值
-            transaction.set(counterRef, Collections.singletonMap("lastSeq", lastSeq));
-
-            return null;
-        }).addOnSuccessListener(aVoid -> {
-            Log.d("DB", "批次新增成功，總共 " + products.size() + " 筆");
-            new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
-        }).addOnFailureListener(e -> {
-            Log.e("DB", "批次新增失敗", e);
-            new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
-        });
-    }
-
+    // ===================== 驗收 =====================
+    /** 更新驗收 */
     public static void updateInspectRecord(String importId, String amountCombined, String spec, String validDate,
                                            boolean packageComplete, boolean odorCheck, boolean vector, String degree,
                                            boolean packageLabel, boolean pallet, boolean coa,
                                            String note, List<String> imageFileName, String inspector, String confirmer,
                                            Consumer<Boolean> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-
         Map<String, Object> updateData = new HashMap<>();
         updateData.put("quantity", amountCombined);
         updateData.put("spec", spec);
@@ -314,11 +174,9 @@ public class ConnectDB {
         updateData.put("note", note);
         updateData.put("image_name", imageFileName);
         updateData.put("inspector_staff", inspector);
-
         if (confirmer != null && !confirmer.trim().isEmpty() && !"確認人員".equals(confirmer)) {
             updateData.put("confirm_staff", confirmer);
         }
-
         db.collection("import_records")
                 .whereEqualTo("import_id", importId)
                 .get()
@@ -342,6 +200,7 @@ public class ConnectDB {
                 });
     }
 
+    /** 篩選驗收紀錄 */
     public static void getFilteredInspectRecords(
             String type, String vendor, String product,
             String inspector, String confirmer, String date, String place,
@@ -368,7 +227,6 @@ public class ConnectDB {
             List<InspectRecord> records = new ArrayList<>();
             for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                 try {
-                    // 原料才有異味/溫度；物料給空字串即可
                     String odor   = "原料".equals(type) ? doc.getString("odor")   : "";
                     String degree = "原料".equals(type) ? doc.getString("degree") : "";
 
@@ -404,258 +262,7 @@ public class ConnectDB {
         });
     }
 
-    public static void addProduct(Context context, String vendor, List<String> products, Consumer<Boolean> callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        DocumentReference docRef = db.collection("vendors").document(vendor);
-
-        docRef.get().addOnSuccessListener(documentSnapshot -> {
-            boolean[] hasSuccess = {false};
-
-            // 保留原有欄位
-            Map<String, Object> updates = new HashMap<>();
-            List<String> existingProducts = new ArrayList<>();
-
-            if (documentSnapshot.exists()) {
-                // 已有廠商資料
-                existingProducts = (List<String>) documentSnapshot.get("products");
-                if (existingProducts == null) existingProducts = new ArrayList<>();
-
-                for (String product : products) {
-                    if (!existingProducts.contains(product)) {
-                        existingProducts.add(product);
-                        hasSuccess[0] = true;
-                    }
-                }
-
-            } else {
-                existingProducts.addAll(products);
-                hasSuccess[0] = true;
-            }
-            updates.put("products", existingProducts);
-            docRef.set(updates, SetOptions.merge())
-                    .addOnSuccessListener(aVoid -> {
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            if (!hasSuccess[0]) {
-                                Toast.makeText(context, "所有品項皆已存在，未新增任何項目", Toast.LENGTH_SHORT).show();
-                            }
-                            callback.accept(true);
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        e.printStackTrace();
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            Toast.makeText(context, "品項新增失敗", Toast.LENGTH_SHORT).show();
-                            callback.accept(false);
-                        });
-                    });
-
-        }).addOnFailureListener(e -> {
-            e.printStackTrace();
-            new Handler(Looper.getMainLooper()).post(() -> {
-                Toast.makeText(context, "讀取廠商資料失敗", Toast.LENGTH_SHORT).show();
-                callback.accept(false);
-            });
-        });
-    }
-
-
-    public static void addVendorWithProducts(Context context, String name, String type, String industry, List<String> products, final Callback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        DocumentReference vendorRef = db.collection("vendors").document(name);
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("type", type);
-        data.put("industry", industry);
-        data.put("products", products);
-
-        vendorRef.set(data)
-                .addOnSuccessListener(unused -> callback.onResult(true))
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    callback.onResult(false);
-                });
-    }
-
-    public interface Callback {
-        void onResult(boolean success);
-    }
-    public static void deleteVendor(Context context, String vendorName, final Callback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        // 該 vendor 的 document ID 就是 vendorName（如你的資料結構如此）
-        db.collection("vendors").document(vendorName)
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(context, "已刪除廠商：" + vendorName, Toast.LENGTH_SHORT).show();
-                    callback.onResult(true);
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    Toast.makeText(context, "刪除失敗：" + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    callback.onResult(false);
-                });
-    }
-
-    public interface UpdatePasswordCallback {
-        void onResult(boolean success, String message);
-    }
-
-    public static void updatePassword(Context context, String newPassword, UpdatePasswordCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        CollectionReference colRef = db.collection("authority_password");
-
-        colRef.get().addOnSuccessListener(querySnapshot -> {
-            if (!querySnapshot.isEmpty()) {
-                DocumentSnapshot doc = querySnapshot.getDocuments().get(0); // 取第一筆文件
-                DocumentReference docRef = doc.getReference();
-
-                Map<String, Object> updateData = new HashMap<>();
-                updateData.put("password", newPassword);
-
-                docRef.set(updateData, SetOptions.merge())
-                        .addOnSuccessListener(unused -> {
-                            ((Activity) context).runOnUiThread(() -> callback.onResult(true, "密碼更新成功"));
-                        })
-                        .addOnFailureListener(e -> {
-                            e.printStackTrace();
-                            ((Activity) context).runOnUiThread(() -> callback.onResult(false, "密碼更新失敗: " + e.getMessage()));
-                        });
-            } else {
-                callback.onResult(false, "未找到密碼文件");
-            }
-        });
-
-    }
-    public static void updateAuthorityEmployee(String id, boolean isChecked, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        db.collection("employees").document(id)
-                .update("employee_authority", isChecked)
-                .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(false, "更新失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
-                });
-    }
-
-    public static void deleteEmployee(String id, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        db.collection("employees").document(id)
-                .delete()
-                .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(false, "刪除失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
-                });
-    }
-
-//     🔁 更新後重新抓取 confirmList / inspectorList
-    private static void fetchUpdatedLists(FirebaseFirestore db,
-                                          Context context,
-                                          EmployeeUpdateCallback callback) {
-        db.collection("employees").get()
-                .addOnSuccessListener(allDocs -> {
-                    List<Map<String, String>> confirmList = new ArrayList<>();
-                    List<Map<String, String>> inspectorList = new ArrayList<>();
-
-                    for (DocumentSnapshot doc : allDocs) {
-                        String id = doc.getId();
-                        String name = doc.getString("name");
-                        Boolean isConfirm = doc.getBoolean("employee_authority");
-                        if (name == null || isConfirm == null) continue;
-                        name = name.trim();
-                        if (name.isEmpty()) continue;
-
-                        Map<String, String> emp = new HashMap<>();
-                        emp.put("id", id);
-                        emp.put("name", name);
-
-                        if (isConfirm) confirmList.add(emp);
-                        else           inspectorList.add(emp);
-                    }
-
-                    Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
-                    confirmList.sort(byName);
-                    inspectorList.sort(byName);
-
-                    ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(true, "更新成功", confirmList, inspectorList)
-                    );
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    ((Activity) context).runOnUiThread(() ->
-                            callback.onResult(false, "取得名單失敗：" + e.getMessage(),
-                                    new ArrayList<>(), new ArrayList<>())
-                    );
-                });
-    }
-
-    public static void addEmployee(String name, Context context, EmployeeUpdateCallback callback) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        CollectionReference employeeRef = db.collection("employees");
-
-        // 建立要新增的資料
-        Map<String, Object> data = new HashMap<>();
-        data.put("name", name);
-        data.put("employee_authority", false);
-        // 新增文件（自動產生 ID）
-        employeeRef.add(data)
-                .addOnSuccessListener(documentReference -> {
-                    // 成功新增員工後，讀取 confirm 與 inspector 清單
-                    fetchEmployeeLists(db, callback, true, "新增成功");
-                })
-                .addOnFailureListener(e -> {
-                    e.printStackTrace();
-                    callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
-                });
-    }
-    private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
-
-        db.collection("employees").get()
-            .addOnSuccessListener(querySnapshot -> {
-                List<Map<String, String>> confirmList = new ArrayList<>();
-                List<Map<String, String>> inspectorList = new ArrayList<>();
-
-                for (QueryDocumentSnapshot doc : querySnapshot) {
-                    String empId = doc.getId();
-                    String empName = doc.getString("name");
-                    Boolean empAuthority = doc.getBoolean("employee_authority");
-                    if (empName == null || empAuthority == null) continue;
-                    empName = empName.trim();
-                    if (empName.isEmpty()) continue;
-
-                    Map<String, String> emp = new HashMap<>();
-                    emp.put("id", empId);
-                    emp.put("name", empName);
-
-                    if (empAuthority) confirmList.add(emp);
-                    else              inspectorList.add(emp);
-                }
-
-                // 可選：排序（依姓名）
-                Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
-                confirmList.sort(byName);
-                inspectorList.sort(byName);
-
-                callback.onResult(true, message, confirmList, inspectorList);
-            })
-            .addOnFailureListener(e -> {
-                e.printStackTrace();
-                callback.onResult(false, "讀取清單失敗：" + e.getMessage(),
-                        new ArrayList<>(), new ArrayList<>());
-            });
-    }
-
-
-    public interface EmployeeUpdateCallback {
-        void onResult(boolean success, String message,
-                      List<Map<String, String>> confirmList,
-                      List<Map<String, String>> inspectorList);
-    }
+    /** 上傳照片 */
     public static void uploadImageToFirebase(Context context, Uri imageUri, String filename, Consumer<String> callback) {
         FirebaseStorage storage = FirebaseStorage.getInstance();
         StorageReference storageRef = storage.getReference().child("inspect_images/" + filename);
@@ -669,6 +276,8 @@ public class ConnectDB {
                     callback.accept(null);
                 });
     }
+
+    /** 照片流水號 */
     public static void getTodayImageFilename(Consumer<String> callback) {
         FirebaseStorage storage = FirebaseStorage.getInstance();
         StorageReference ref = storage.getReference().child("inspect_images/");
@@ -690,6 +299,7 @@ public class ConnectDB {
         });
     }
 
+    /** 刪除照片 */
     public static void imageDelete(List<String> toBeDeletedImages) {
         FirebaseStorage storage = FirebaseStorage.getInstance();
 
@@ -706,124 +316,171 @@ public class ConnectDB {
         toBeDeletedImages.clear();
     }
 
-    public interface ExportCallback {
-        void onResult(boolean success, String message);
-    }
 
+    /** 轉換文字 */
     public static String changeFormat(Map<String, Object> record, String key) {
         if (!record.containsKey(key) || record.get(key) == null) {
             return "缺";
         }
-        String value = String.valueOf(record.get(key)).trim();
-        if ("0".equals(value)) return "無";
-        if ("1".equals(value)) return "有";
-        return value;
+        Map<String, String> mapping = new HashMap<>();
+        mapping.put("0", "無");
+        mapping.put("1", "有");
+        return mapping.getOrDefault(String.valueOf(record.get(key)).trim(), "缺");
     }
 
-    public static void exportDataToExcel(Context context, String startDate, String endDate, String vendor, String place, ExportCallback callback) {
+    /** 取得照片 */
+    public static void getImage(String importId, Consumer<List<String>> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        Date start, end;
 
-        try {
-            start = sdf.parse(startDate);
-            end = sdf.parse(endDate);
-            if (start != null && end != null && start.after(end)) {
-                callback.onResult(false, "開始日期不能晚於結束日期");
-                return;
-            }
-        } catch (ParseException e) {
-            callback.onResult(false, "日期格式錯誤");
+        db.collection("import_records")
+                .whereEqualTo("import_id", importId)
+                .limit(1) // 只會有一筆
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> imageNames = new ArrayList<>();
+
+                    if (!querySnapshot.isEmpty()) {
+                        DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
+                        Object imgObj = doc.get("image_name");
+
+                        if (imgObj instanceof List<?>) {
+                            for (Object o : (List<?>) imgObj) {
+                                if (o != null) {
+                                    String val = String.valueOf(o).trim();
+                                    if (!val.isEmpty()) imageNames.add(val);
+                                }
+                            }
+                        } else if (imgObj instanceof String) {
+                            String s = ((String) imgObj).trim();
+                            if (!s.isEmpty()) imageNames.add(s);
+                        }
+                    }
+
+                    callback.accept(imageNames != null ? imageNames : new ArrayList<>());
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(new ArrayList<>());
+                });
+    }
+
+    /** 取得驗收紀錄 */
+    public static void loadInspectRecords(
+            String type,
+            String placeValue,
+            boolean listenMode,   // true = 監聽最新資料、初始化 lastDoc
+            Consumer<List<InspectRecord>> callback
+    ) {
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // listenMode = true（第一次載入 / 切換地點） → 使用 SnapshotListener
+        if (listenMode) {
+
+            // 清除舊監聽避免重複
+            if (inspectListener != null) inspectListener.remove();
+
+            lastDoc = null;
+
+            inspectListener = db.collection("import_records")
+                    .whereEqualTo("type", type)
+                    .whereEqualTo("place", placeValue)
+                    .orderBy("import_date", Query.Direction.DESCENDING)
+                    .limit(20)
+                    .addSnapshotListener((snapshots, e) -> {
+                        if (e != null || snapshots == null) {
+                            e.printStackTrace();
+                            callback.accept(new ArrayList<>());
+                            return;
+                        }
+
+                        List<InspectRecord> records = parseDocs(snapshots);
+
+                        if (!snapshots.isEmpty()) {
+                            lastDoc = snapshots.getDocuments()
+                                    .get(snapshots.size() - 1);
+                        }
+
+                        callback.accept(records);
+                    });
+
+            return;
+        }
+
+        // listenMode = false → Load More（使用一次性 get()）
+        if (lastDoc == null) {
+            callback.accept(new ArrayList<>());
             return;
         }
 
         db.collection("import_records")
+                .whereEqualTo("type", type)
+                .whereEqualTo("place", placeValue)
+                .orderBy("import_date", Query.Direction.DESCENDING)
+                .startAfter(lastDoc)
+                .limit(20)
                 .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<Map<String, Object>> filteredList = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : querySnapshot) {
-                        String dateStr = doc.getString("import_date");
-                        String docVendor = doc.getString("vendor");
-                        String docPlace = doc.getString("place");
-                        try {
-                            Date docDate = sdf.parse(dateStr);
-                            if (docDate != null && !docDate.before(start) && !docDate.after(end)) {
-                                boolean vendorOk = (vendor == null || vendor.isEmpty() || vendor.equals(docVendor));
-                                boolean placeOk  = (place == null || place.isEmpty() || place.equals(docPlace));
-
-                                if (vendorOk && placeOk) {
-                                    filteredList.add(doc.getData());
-                                }
-                            }
-                        } catch (ParseException ignored) {}
+                .addOnSuccessListener(q -> {
+                    List<InspectRecord> records = parseDocs(q);
+                    if (!q.isEmpty()) {
+                        lastDoc = q.getDocuments().get(q.size() - 1);
                     }
-
-                    try {
-                        Workbook workbook = new XSSFWorkbook();
-                        Sheet sheet = workbook.createSheet("資料");
-
-                        String[] columns = {"型態", "進貨日期", "進貨地點","廠商", "品項", "進貨數量", "規格", "外包裝完整", "無異味", "無病媒", "溫度°C", "包材標示", "有效日期批號", "棧板", "COA", "備註", "進貨地點", "驗收人員", "確認人員"};
-
-                        Row header = sheet.createRow(0);
-                        for (int i = 0; i < columns.length; i++) {
-                            header.createCell(i).setCellValue(columns[i]);
-                        }
-
-                        int rowNum = 1;
-                        for (Map<String, Object> record : filteredList) {
-                            Row row = sheet.createRow(rowNum++);
-                            row.createCell(0).setCellValue(String.valueOf(record.getOrDefault("type", "")));
-                            row.createCell(1).setCellValue(String.valueOf(record.getOrDefault("import_date", "")));
-                            row.createCell(2).setCellValue(String.valueOf(record.getOrDefault("place", "")));
-                            row.createCell(3).setCellValue(String.valueOf(record.getOrDefault("vendor", "")));
-                            row.createCell(4).setCellValue(String.valueOf(record.getOrDefault("product", "")));
-                            row.createCell(5).setCellValue(String.valueOf(record.getOrDefault("quantity", "")));
-                            row.createCell(6).setCellValue(String.valueOf(record.getOrDefault("spec", "")));
-                            row.createCell(7).setCellValue(changeFormat(record, "package_complete"));
-                            row.createCell(8).setCellValue(changeFormat(record, "odor"));
-                            row.createCell(9).setCellValue(changeFormat(record, "vector_complete"));
-                            row.createCell(10).setCellValue(String.valueOf(record.getOrDefault("degree", "")));
-                            row.createCell(11).setCellValue(changeFormat(record, "package_label"));
-                            row.createCell(12).setCellValue(String.valueOf(record.getOrDefault("validDate", "")));
-                            row.createCell(13).setCellValue(changeFormat(record, "pallet_complete"));
-                            row.createCell(14).setCellValue(changeFormat(record, "coa"));
-                            row.createCell(15).setCellValue(String.valueOf(record.getOrDefault("note", "")));
-                            row.createCell(16).setCellValue(String.valueOf(record.getOrDefault("place", "")));
-                            row.createCell(17).setCellValue(String.valueOf(record.getOrDefault("inspector_staff", "")));
-                            row.createCell(18).setCellValue(String.valueOf(record.getOrDefault("confirm_staff", "")));
-                        }
-
-                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                        if (!downloadsDir.exists()) {
-                            downloadsDir.mkdirs();
-                        }
-
-                        String fileName;
-                        if (vendor == null || vendor.isEmpty()) {
-                            fileName = startDate + " ~ " + endDate + ".xlsx";
-                        } else {
-                            fileName = vendor + "_" + startDate + " ~ " + endDate + ".xlsx";
-                        }
-                        if (place != null && !place.isEmpty()) {
-                            fileName = place + "_" + fileName; // 前面加地點
-                        }
-
-                        File file = new File(downloadsDir, fileName);
-                        FileOutputStream fos = new FileOutputStream(file);
-                        workbook.write(fos);
-                        fos.close();
-                        workbook.close();
-
-                        callback.onResult(true, "匯出成功，檔案已儲存：" + file.getAbsolutePath());
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        callback.onResult(false, "匯出失敗：" + e.getMessage());
-                    }
+                    callback.accept(records);
                 })
-                .addOnFailureListener(e -> callback.onResult(false, "查詢失敗：" + e.getMessage()));
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.accept(new ArrayList<>());
+                });
     }
 
+    /**
+     * 將 DocumentSnapshot -> InspectRecord
+     */
+    private static List<InspectRecord> parseDocs(QuerySnapshot querySnapshot) {
+        List<InspectRecord> records = new ArrayList<>();
+        for (DocumentSnapshot doc : querySnapshot) {
+            String importId        = doc.getString("import_id");
+            String importDate      = doc.getString("import_date");
+            String vendor          = doc.getString("vendor");
+            String product         = doc.getString("product");
+            String spec            = doc.getString("spec");
+            String packageComplete = doc.getString("package_complete");
+            String vectorComplete  = doc.getString("vector_complete");
+            String packageLabel    = doc.getString("package_label");
+            String quantity        = doc.getString("quantity");
+            String validDate       = doc.getString("validDate");
+            String palletComplete  = doc.getString("pallet_complete");
+            String coa             = doc.getString("coa");
+            String note            = doc.getString("note");
+            String place           = doc.getString("place");
+            String inspectorStaff  = doc.getString("inspector_staff");
+            String confirmStaff    = doc.getString("confirm_staff");
+
+            InspectRecord record;
+            if ("原料".equals(doc.getString("type"))) {
+                String odor   = doc.getString("odor");
+                String degree = doc.getString("degree");
+                record = new InspectRecord(
+                        importId, importDate, vendor, product, spec,
+                        packageComplete, vectorComplete, packageLabel,
+                        quantity, validDate, palletComplete, coa, note, place,
+                        inspectorStaff, confirmStaff, odor, degree
+                );
+            } else {
+                record = new InspectRecord(
+                        importId, importDate, vendor, product, spec,
+                        packageComplete, vectorComplete, packageLabel,
+                        quantity, validDate, palletComplete, coa, note, place,
+                        inspectorStaff, confirmStaff, "", ""
+                );
+            }
+            records.add(record);
+        }
+        return records;
+    }
+
+    // ===================== 庫存 =====================
+    /** 新增庫存 */
     public static void addStorage(String place, String type, String vendorName,
                                   List<Map<String, Object>> products,
                                   Consumer<Boolean> callback) {
@@ -876,62 +533,64 @@ public class ConnectDB {
                 });
     }
 
+    /** 取得庫存 */
     public static void getStorage(String place, String type, Consumer<List<Map<String, Object>>> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         db.collection("storage")
-        .document(place)
-        .collection(type)
-        .get()
-        .addOnSuccessListener(vendorSnapshots -> {
-            List<Map<String, Object>> resultList = new ArrayList<>();
+                .document(place)
+                .collection(type)
+                .get()
+                .addOnSuccessListener(vendorSnapshots -> {
+                    List<Map<String, Object>> resultList = new ArrayList<>();
 
-            if (vendorSnapshots.isEmpty()) {
-                callback.accept(resultList);
-                return;
-            }
+                    if (vendorSnapshots.isEmpty()) {
+                        callback.accept(resultList);
+                        return;
+                    }
 
-            int totalVendors = vendorSnapshots.size();
-            final int[] completed = {0};
+                    int totalVendors = vendorSnapshots.size();
+                    final int[] completed = {0};
 
-            for (DocumentSnapshot vendorDoc : vendorSnapshots) {
-                String vendorName = vendorDoc.getId();
+                    for (DocumentSnapshot vendorDoc : vendorSnapshots) {
+                        String vendorName = vendorDoc.getId();
 
-                vendorDoc.getReference().collection("products")
-                        .get()
-                        .addOnSuccessListener(productSnapshots -> {
-                            for (DocumentSnapshot productDoc : productSnapshots) {
-                                String productName = productDoc.getId();
-                                int amount = productDoc.contains("amount") && productDoc.get("amount") instanceof Number
-                                        ? ((Number) productDoc.get("amount")).intValue()
-                                        : 0;
+                        vendorDoc.getReference().collection("products")
+                                .get()
+                                .addOnSuccessListener(productSnapshots -> {
+                                    for (DocumentSnapshot productDoc : productSnapshots) {
+                                        String productName = productDoc.getId();
+                                        int amount = productDoc.contains("amount") && productDoc.get("amount") instanceof Number
+                                                ? ((Number) productDoc.get("amount")).intValue()
+                                                : 0;
 
-                                Map<String, Object> data = new HashMap<>();
-                                data.put("id", productDoc.getId());
-                                data.put("place", place);
-                                data.put("type", type);
-                                data.put("vendorName", vendorName);
-                                data.put("product", productName);
-                                data.put("amount", amount);
-                                resultList.add(data);
-                            }
+                                        Map<String, Object> data = new HashMap<>();
+                                        data.put("id", productDoc.getId());
+                                        data.put("place", place);
+                                        data.put("type", type);
+                                        data.put("vendorName", vendorName);
+                                        data.put("product", productName);
+                                        data.put("amount", amount);
+                                        resultList.add(data);
+                                    }
 
-                            if (++completed[0] == totalVendors) {
-                                callback.accept(resultList);
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            if (++completed[0] == totalVendors) {
-                                callback.accept(resultList);
-                            }
-                        });
-            }
-        })
-        .addOnFailureListener(e -> {
-            callback.accept(new ArrayList<>());
-        });
+                                    if (++completed[0] == totalVendors) {
+                                        callback.accept(resultList);
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    if (++completed[0] == totalVendors) {
+                                        callback.accept(resultList);
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    callback.accept(new ArrayList<>());
+                });
     }
 
+    /** 更新庫存 */
     public static void updateQuantity(String place,
                                       Map<String, Map<String, Map<String, Integer>>> changes,
                                       Consumer<Boolean> callback) {
@@ -974,7 +633,7 @@ public class ConnectDB {
                 });
     }
 
-
+    /** 調整庫存 */ //TODO
     public static void adjustQuantity(String place, String type, String vendorName, String productName, int diff, Consumer<Boolean> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         DocumentReference docRef = db.collection("storage")
@@ -1013,165 +672,506 @@ public class ConnectDB {
         });
     }
 
-
-
-
-
-    // === 匯入資料紀錄 ===
-    public static void getImage(String importId, Consumer<List<String>> callback) {
+    // ===================== 設定 =====================
+    /** 員工資料 */
+    public static void getEmployees(String type, Runnable callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
+        boolean isConfirm = "confirmPerson".equals(type);
 
-        db.collection("import_records")
-                .whereEqualTo("import_id", importId)
-                .limit(1) // 只會有一筆
+        db.collection("employees")
+                .whereEqualTo("employee_authority", isConfirm)
                 .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<String> imageNames = new ArrayList<>();
+                .addOnSuccessListener(qs -> {
+                    List<Map<String, String>> list = new ArrayList<>();
+                    for (DocumentSnapshot doc : qs) {
+                        String id   = doc.getId();
+                        String name = doc.getString("name");
+                        if (name == null) continue;
+                        name = name.trim();
+                        if (name.isEmpty()) continue;
 
-                    if (!querySnapshot.isEmpty()) {
-                        DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
-                        Object imgObj = doc.get("image_name");
-
-                        if (imgObj instanceof List<?>) {
-                            for (Object o : (List<?>) imgObj) {
-                                if (o != null) {
-                                    String val = String.valueOf(o).trim();
-                                    if (!val.isEmpty()) imageNames.add(val);
-                                }
-                            }
-                        } else if (imgObj instanceof String) {
-                            String s = ((String) imgObj).trim();
-                            if (!s.isEmpty()) imageNames.add(s);
-                        }
+                        Map<String, String> m = new HashMap<>();
+                        m.put("id", id);
+                        m.put("name", name);
+                        list.add(m);
                     }
 
-                    callback.accept(imageNames != null ? imageNames : new ArrayList<>());
+                    // 依姓名排序（可省略）
+                    list.sort(Comparator.comparing(m -> m.getOrDefault("name", "")));
+
+                    if (isConfirm) {
+                        DataSource.setConfirmPersons(list);
+                    } else {
+                        DataSource.setInspectors(list);
+                    }
+
+                    if (callback != null) callback.run();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "getEmployees 失敗：" + e.getMessage(), e);
+                    if (callback != null) callback.run();
+                });
+    }
+
+    /** 單位 */
+    public static void getUnit(Consumer<List<String>> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("unit")
+                .document("unit") // 這裡是你的文件名稱（左邊看到 unit → unit）
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // 取得所有欄位的值
+                        Map<String, Object> data = documentSnapshot.getData();
+                        if (data != null) {
+                            List<String> units = new ArrayList<>();
+                            for (Object value : data.values()) {
+                                units.add(value.toString());
+                            }
+                            callback.accept(units); // 回傳結果
+                        } else {
+                            callback.accept(new ArrayList<>());
+                        }
+                    } else {
+                        callback.accept(new ArrayList<>());
+                    }
                 })
                 .addOnFailureListener(e -> {
                     e.printStackTrace();
                     callback.accept(new ArrayList<>());
                 });
     }
-    /**
-     * 監聽最近 20 筆資料 (即時更新)
-     */
-    public static void listenLatestInspectRecords(String type, String placeValue,
-                                                  Consumer<List<InspectRecord>> callback) {
+
+    /** 廠商/產品 */
+    public static void getVendorProductData(Consumer<Map<String, VendorInfo>> callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, VendorInfo> vendorMap = new LinkedHashMap<>();
 
-        // 移除舊監聽避免重複
-        if (inspectListener != null) {
-            inspectListener.remove();
-        }
+        db.collection("vendors")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        try {
+                            String vendor = doc.getId(); // Document ID 當作 vendor 名
+                            String industry = doc.getString("industry");
+                            String type = doc.getString("type");
 
-        lastDoc = null;
+                            List<String> productList = (List<String>) doc.get("products");
+                            if (productList == null) productList = new ArrayList<>();
 
-        inspectListener = db.collection("import_records")
-                .whereEqualTo("type", type)
-                .whereEqualTo("place", placeValue)
-                .orderBy("import_date", Query.Direction.DESCENDING)
-                .limit(20)
-                .addSnapshotListener((snapshots, e) -> {
-                    if (e != null || snapshots == null) {
-                        e.printStackTrace();
-                        callback.accept(new ArrayList<>());
-                        return;
+                            VendorInfo info = new VendorInfo(industry, type, productList);
+                            vendorMap.put(vendor, info);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
-
-                    List<InspectRecord> records = parseDocs(snapshots);
-                    if (!snapshots.isEmpty()) {
-                        lastDoc = snapshots.getDocuments()
-                                .get(snapshots.size() - 1); // 記住最後一筆
-                    }
-                    callback.accept(records);
+                    callback.accept(vendorMap);
+                })
+                .addOnFailureListener(e -> {
+                    callback.accept(vendorMap);
                 });
     }
 
-    /**
-     * 載入更多舊資料 (分頁用)
-     */
-    public static void getInspectRecords(String type, String placeValue,
-                                              Consumer<List<InspectRecord>> callback) {
-        if (lastDoc == null) {
-            callback.accept(new ArrayList<>()); // 沒有上一頁，直接回空
+    /** 密碼 */
+    public static void getPasswords(Consumer<List<String>> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("authority_password")
+            .get()
+            .addOnSuccessListener(queryDocumentSnapshots -> {
+                List<String> passwordList = new ArrayList<>();
+                for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                    String password = doc.getString("password");
+                    if (password != null) {
+                        passwordList.add(password);
+                    }
+                }
+                callback.accept(passwordList);
+            })
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                callback.accept(new ArrayList<>());
+            });
+    }
+
+    /** 刪除產品 */
+    public static void deleteProduct(String vendorName, String productName, Consumer<Boolean> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference docRef = db.collection("vendors").document(vendorName);
+
+        docRef.update("products", FieldValue.arrayRemove(productName))
+            .addOnSuccessListener(aVoid -> {
+                new Handler(Looper.getMainLooper()).post(() -> callback.accept(true));
+            })
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                new Handler(Looper.getMainLooper()).post(() -> callback.accept(false));
+            });
+    }
+
+    /** 新增產品 */
+    public static void addProduct(Context context, String vendor, List<String> products, Consumer<Boolean> callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference docRef = db.collection("vendors").document(vendor);
+
+        docRef.get().addOnSuccessListener(documentSnapshot -> {
+            boolean[] hasSuccess = {false};
+
+            // 保留原有欄位
+            Map<String, Object> updates = new HashMap<>();
+            List<String> existingProducts = new ArrayList<>();
+
+            if (documentSnapshot.exists()) {
+                // 已有廠商資料
+                existingProducts = (List<String>) documentSnapshot.get("products");
+                if (existingProducts == null) existingProducts = new ArrayList<>();
+
+                for (String product : products) {
+                    if (!existingProducts.contains(product)) {
+                        existingProducts.add(product);
+                        hasSuccess[0] = true;
+                    }
+                }
+
+            } else {
+                existingProducts.addAll(products);
+                hasSuccess[0] = true;
+            }
+            updates.put("products", existingProducts);
+            docRef.set(updates, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (!hasSuccess[0]) {
+                            Toast.makeText(context, "所有品項皆已存在，未新增任何項目", Toast.LENGTH_SHORT).show();
+                        }
+                        callback.accept(true);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        Toast.makeText(context, "品項新增失敗", Toast.LENGTH_SHORT).show();
+                        callback.accept(false);
+                    });
+                });
+
+        }).addOnFailureListener(e -> {
+            e.printStackTrace();
+            new Handler(Looper.getMainLooper()).post(() -> {
+                Toast.makeText(context, "讀取廠商資料失敗", Toast.LENGTH_SHORT).show();
+                callback.accept(false);
+            });
+        });
+    }
+
+    /** 新增廠商 */
+    public static void addVendorWithProducts(Context context, String name, String type, String industry, List<String> products, final Callback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference vendorRef = db.collection("vendors").document(name);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("type", type);
+        data.put("industry", industry);
+        data.put("products", products);
+
+        vendorRef.set(data)
+            .addOnSuccessListener(unused -> callback.onResult(true))
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                callback.onResult(false);
+            });
+    }
+
+    public interface Callback {
+        void onResult(boolean success);
+    }
+
+    /** 刪除廠商 */
+    public static void deleteVendor(Context context, String vendorName, final Callback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("vendors").document(vendorName)
+            .delete()
+            .addOnSuccessListener(aVoid -> {
+                Toast.makeText(context, "已刪除廠商：" + vendorName, Toast.LENGTH_SHORT).show();
+                callback.onResult(true);
+            })
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                Toast.makeText(context, "刪除失敗：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                callback.onResult(false);
+            });
+    }
+
+    public interface UpdatePasswordCallback {
+        void onResult(boolean success, String message);
+    }
+
+    /** 更新密碼 */
+    public static void updatePassword(Context context, String newPassword, UpdatePasswordCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        CollectionReference colRef = db.collection("authority_password");
+
+        colRef.get().addOnSuccessListener(querySnapshot -> {
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot doc = querySnapshot.getDocuments().get(0); // 取第一筆文件
+                DocumentReference docRef = doc.getReference();
+
+                Map<String, Object> updateData = new HashMap<>();
+                updateData.put("password", newPassword);
+
+                docRef.set(updateData, SetOptions.merge())
+                        .addOnSuccessListener(unused -> {
+                            ((Activity) context).runOnUiThread(() -> callback.onResult(true, "密碼更新成功"));
+                        })
+                        .addOnFailureListener(e -> {
+                            e.printStackTrace();
+                            ((Activity) context).runOnUiThread(() -> callback.onResult(false, "密碼更新失敗: " + e.getMessage()));
+                        });
+            } else {
+                callback.onResult(false, "未找到密碼文件");
+            }
+        });
+    }
+
+    /** 更新員工權限 */
+    public static void updateAuthorityEmployee(String id, boolean isChecked, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("employees").document(id)
+            .update("employee_authority", isChecked)
+            .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                ((Activity) context).runOnUiThread(() ->
+                        callback.onResult(false, "更新失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+            });
+    }
+
+    /** 刪除員工 */
+    public static void deleteEmployee(String id, Context context,  ConnectDB.EmployeeUpdateCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        db.collection("employees").document(id)
+            .delete()
+            .addOnSuccessListener(unused -> fetchUpdatedLists(db, context, callback))
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                ((Activity) context).runOnUiThread(() ->
+                        callback.onResult(false, "刪除失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>()));
+            });
+    }
+
+    /** 員工資料 */ //TODO
+    private static void fetchUpdatedLists(FirebaseFirestore db,
+                                          Context context,
+                                          EmployeeUpdateCallback callback) {
+        db.collection("employees").get()
+            .addOnSuccessListener(allDocs -> {
+                List<Map<String, String>> confirmList = new ArrayList<>();
+                List<Map<String, String>> inspectorList = new ArrayList<>();
+
+                for (DocumentSnapshot doc : allDocs) {
+                    String id = doc.getId();
+                    String name = doc.getString("name");
+                    Boolean isConfirm = doc.getBoolean("employee_authority");
+                    if (name == null || isConfirm == null) continue;
+                    name = name.trim();
+                    if (name.isEmpty()) continue;
+
+                    Map<String, String> emp = new HashMap<>();
+                    emp.put("id", id);
+                    emp.put("name", name);
+
+                    if (isConfirm) confirmList.add(emp);
+                    else           inspectorList.add(emp);
+                }
+
+                Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
+                confirmList.sort(byName);
+                inspectorList.sort(byName);
+
+                ((Activity) context).runOnUiThread(() ->
+                        callback.onResult(true, "更新成功", confirmList, inspectorList)
+                );
+            })
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                ((Activity) context).runOnUiThread(() ->
+                        callback.onResult(false, "取得名單失敗：" + e.getMessage(),
+                                new ArrayList<>(), new ArrayList<>())
+                );
+            });
+    }
+
+    /** 新增員工 */
+    public static void addEmployee(String name, Context context, EmployeeUpdateCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        CollectionReference employeeRef = db.collection("employees");
+
+        // 建立要新增的資料
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", name);
+        data.put("employee_authority", false);
+        // 新增文件（自動產生 ID）
+        employeeRef.add(data)
+                .addOnSuccessListener(documentReference -> {
+                    // 成功新增員工後，讀取 confirm 與 inspector 清單
+                    fetchEmployeeLists(db, callback, true, "新增成功");
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                    callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
+                });
+    }
+    /** 員工資料 */ //TODO
+    private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
+
+        db.collection("employees").get()
+            .addOnSuccessListener(querySnapshot -> {
+                List<Map<String, String>> confirmList = new ArrayList<>();
+                List<Map<String, String>> inspectorList = new ArrayList<>();
+
+                for (QueryDocumentSnapshot doc : querySnapshot) {
+                    String empId = doc.getId();
+                    String empName = doc.getString("name");
+                    Boolean empAuthority = doc.getBoolean("employee_authority");
+                    if (empName == null || empAuthority == null) continue;
+                    empName = empName.trim();
+                    if (empName.isEmpty()) continue;
+
+                    Map<String, String> emp = new HashMap<>();
+                    emp.put("id", empId);
+                    emp.put("name", empName);
+
+                    if (empAuthority) confirmList.add(emp);
+                    else              inspectorList.add(emp);
+                }
+
+                // 可選：排序（依姓名）
+                Comparator<Map<String,String>> byName = Comparator.comparing(m -> m.getOrDefault("name",""));
+                confirmList.sort(byName);
+                inspectorList.sort(byName);
+
+                callback.onResult(true, message, confirmList, inspectorList);
+            })
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                callback.onResult(false, "讀取清單失敗：" + e.getMessage(),
+                        new ArrayList<>(), new ArrayList<>());
+            });
+    }
+    public interface EmployeeUpdateCallback {
+        void onResult(boolean success, String message,
+                      List<Map<String, String>> confirmList,
+                      List<Map<String, String>> inspectorList);
+    }
+
+
+    public interface ExportCallback {
+        void onResult(boolean success, String message);
+    }
+    /** 匯出 */
+    public static void exportDataToExcel(Context context, String startDate, String endDate, String vendor, String place, ExportCallback callback) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        Date start, end;
+
+        try {
+            start = sdf.parse(startDate);
+            end = sdf.parse(endDate);
+            if (start != null && end != null && start.after(end)) {
+                callback.onResult(false, "開始日期不能晚於結束日期");
+                return;
+            }
+        } catch (ParseException e) {
+            callback.onResult(false, "日期格式錯誤");
             return;
         }
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("import_records")
-                .whereEqualTo("type", type)
-                .whereEqualTo("place", placeValue)
-                .orderBy("import_date", Query.Direction.DESCENDING)
-                .startAfter(lastDoc) // 從上一頁最後一筆之後開始
-                .limit(20)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<InspectRecord> records = parseDocs(querySnapshot);
-                    if (!querySnapshot.isEmpty()) {
-                        lastDoc = querySnapshot.getDocuments()
-                                .get(querySnapshot.size() - 1);
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                List<Map<String, Object>> filteredList = new ArrayList<>();
+                for (QueryDocumentSnapshot doc : querySnapshot) {
+                    String dateStr = doc.getString("import_date");
+                    String docVendor = doc.getString("vendor");
+                    String docPlace = doc.getString("place");
+                    try {
+                        Date docDate = sdf.parse(dateStr);
+                        if (docDate != null && !docDate.before(start) && !docDate.after(end)) {
+                            boolean vendorOk = (vendor == null || vendor.isEmpty() || vendor.equals(docVendor));
+                            boolean placeOk  = (place == null || place.isEmpty() || place.equals(docPlace));
+
+                            if (vendorOk && placeOk) {
+                                filteredList.add(doc.getData());
+                            }
+                        }
+                    } catch (ParseException ignored) {}
+                }
+
+                try {
+                    Workbook workbook = new XSSFWorkbook();
+                    Sheet sheet = workbook.createSheet("資料");
+
+                    String[] columns = {"型態", "進貨日期", "進貨地點","廠商", "品項", "進貨數量", "規格", "外包裝完整", "無異味", "無病媒", "溫度°C", "包材標示", "有效日期批號", "棧板", "COA", "備註", "進貨地點", "驗收人員", "確認人員"};
+
+                    Row header = sheet.createRow(0);
+                    for (int i = 0; i < columns.length; i++) {
+                        header.createCell(i).setCellValue(columns[i]);
                     }
-                    callback.accept(records);
-                })
-                .addOnFailureListener(e -> {
+
+                    int rowNum = 1;
+                    for (Map<String, Object> record : filteredList) {
+                        Row row = sheet.createRow(rowNum++);
+                        row.createCell(0).setCellValue(String.valueOf(record.getOrDefault("type", "")));
+                        row.createCell(1).setCellValue(String.valueOf(record.getOrDefault("import_date", "")));
+                        row.createCell(2).setCellValue(String.valueOf(record.getOrDefault("place", "")));
+                        row.createCell(3).setCellValue(String.valueOf(record.getOrDefault("vendor", "")));
+                        row.createCell(4).setCellValue(String.valueOf(record.getOrDefault("product", "")));
+                        row.createCell(5).setCellValue(String.valueOf(record.getOrDefault("quantity", "")));
+                        row.createCell(6).setCellValue(String.valueOf(record.getOrDefault("spec", "")));
+                        row.createCell(7).setCellValue(changeFormat(record, "package_complete"));
+                        row.createCell(8).setCellValue(changeFormat(record, "odor"));
+                        row.createCell(9).setCellValue(changeFormat(record, "vector_complete"));
+                        row.createCell(10).setCellValue(String.valueOf(record.getOrDefault("degree", "")));
+                        row.createCell(11).setCellValue(changeFormat(record, "package_label"));
+                        row.createCell(12).setCellValue(String.valueOf(record.getOrDefault("validDate", "")));
+                        row.createCell(13).setCellValue(changeFormat(record, "pallet_complete"));
+                        row.createCell(14).setCellValue(changeFormat(record, "coa"));
+                        row.createCell(15).setCellValue(String.valueOf(record.getOrDefault("note", "")));
+                        row.createCell(16).setCellValue(String.valueOf(record.getOrDefault("place", "")));
+                        row.createCell(17).setCellValue(String.valueOf(record.getOrDefault("inspector_staff", "")));
+                        row.createCell(18).setCellValue(String.valueOf(record.getOrDefault("confirm_staff", "")));
+                    }
+
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadsDir.exists()) {
+                        downloadsDir.mkdirs();
+                    }
+
+                    String fileName;
+                    if (vendor == null || vendor.isEmpty()) {
+                        fileName = startDate + " ~ " + endDate + ".xlsx";
+                    } else {
+                        fileName = vendor + "_" + startDate + " ~ " + endDate + ".xlsx";
+                    }
+                    if (place != null && !place.isEmpty()) {
+                        fileName = place + "_" + fileName; // 前面加地點
+                    }
+
+                    File file = new File(downloadsDir, fileName);
+                    FileOutputStream fos = new FileOutputStream(file);
+                    workbook.write(fos);
+                    fos.close();
+                    workbook.close();
+
+                    callback.onResult(true, "匯出成功，檔案已儲存：" + file.getAbsolutePath());
+
+                } catch (Exception e) {
                     e.printStackTrace();
-                    callback.accept(new ArrayList<>());
-                });
-    }
-
-    /**
-     * 移除監聽，避免記憶體洩漏
-     */
-    public static void removeInspectListener() {
-        if (inspectListener != null) {
-            inspectListener.remove();
-            inspectListener = null;
-        }
-    }
-
-    /**
-     * 將 DocumentSnapshot -> InspectRecord
-     */
-    private static List<InspectRecord> parseDocs(QuerySnapshot querySnapshot) {
-        List<InspectRecord> records = new ArrayList<>();
-        for (DocumentSnapshot doc : querySnapshot) {
-            String importId        = doc.getString("import_id");
-            String importDate      = doc.getString("import_date");
-            String vendor          = doc.getString("vendor");
-            String product         = doc.getString("product");
-            String spec            = doc.getString("spec");
-            String packageComplete = doc.getString("package_complete");
-            String vectorComplete  = doc.getString("vector_complete");
-            String packageLabel    = doc.getString("package_label");
-            String quantity        = doc.getString("quantity");
-            String validDate       = doc.getString("validDate");
-            String palletComplete  = doc.getString("pallet_complete");
-            String coa             = doc.getString("coa");
-            String note            = doc.getString("note");
-            String place           = doc.getString("place");
-            String inspectorStaff  = doc.getString("inspector_staff");
-            String confirmStaff    = doc.getString("confirm_staff");
-
-            InspectRecord record;
-            if ("原料".equals(doc.getString("type"))) {
-                String odor   = doc.getString("odor");
-                String degree = doc.getString("degree");
-                record = new InspectRecord(
-                        importId, importDate, vendor, product, spec,
-                        packageComplete, vectorComplete, packageLabel,
-                        quantity, validDate, palletComplete, coa, note, place,
-                        inspectorStaff, confirmStaff, odor, degree
-                );
-            } else {
-                record = new InspectRecord(
-                        importId, importDate, vendor, product, spec,
-                        packageComplete, vectorComplete, packageLabel,
-                        quantity, validDate, palletComplete, coa, note, place,
-                        inspectorStaff, confirmStaff, "", ""
-                );
-            }
-            records.add(record);
-        }
-        return records;
+                    callback.onResult(false, "匯出失敗：" + e.getMessage());
+                }
+            })
+            .addOnFailureListener(e -> callback.onResult(false, "查詢失敗：" + e.getMessage()));
     }
 }

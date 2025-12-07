@@ -6,6 +6,7 @@ import android.widget.LinearLayout;
 
 import com.example.deliverysystem.BaseActivity;
 import com.example.deliverysystem.R;
+import com.example.deliverysystem.utility.Tools;
 
 public class InspectMain extends BaseActivity {
 
@@ -20,16 +21,14 @@ public class InspectMain extends BaseActivity {
         ingredientButton = findViewById(R.id.ingredient);
         materialButton = findViewById(R.id.material);
 
-        ingredientButton.setOnClickListener(v -> {
-            Intent intent = new Intent(InspectMain.this, InspectTable.class);
-            intent.putExtra("type", "原料");
-            startActivity(intent);
-        });
+        /** 原料 */
+        Bundle ingredientParam = new Bundle();
+        ingredientParam.putString("type", "原料");
+        Tools.navigator(ingredientButton, this, InspectTable.class, false, ingredientParam);
 
-        materialButton.setOnClickListener(v -> {
-            Intent intent = new Intent(InspectMain.this, InspectTable.class);
-            intent.putExtra("type", "物料");
-            startActivity(intent);
-        });
+        /** 物料 */
+        Bundle materialParam = new Bundle();
+        materialParam.putString("type", "物料");
+        Tools.navigator(materialButton, this, InspectTable.class, false, materialParam);
     }
 }
