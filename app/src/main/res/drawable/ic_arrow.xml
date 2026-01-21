@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="60dp"
+    android:height="60dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+
+    <!-- 橫線 -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M41.25,31.25H17.5V28.75H41.25V31.25Z" />
+
+    <!-- 箭頭 -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M40.7322,30L32.8661,22.134L34.6339,20.3662L43.3839,29.1162C43.872,29.6044 43.872,30.3958 43.3839,30.884L34.6339,39.634L32.8661,37.8662L40.7322,30Z" />
+</vector>

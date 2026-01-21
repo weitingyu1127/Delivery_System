@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="50dp"
+    android:background="@android:color/white"
+    android:fitsSystemWindows="true">
+
+    <!-- 標題 -->
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="驗收 Acceptance"
+        android:textSize="28sp"
+        android:textColor="#000000" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/gray"
+        android:layout_marginTop="15dp"
+        android:layout_marginBottom="15dp" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="10dp"
+        android:weightSum="3">
+
+        <Button
+            android:id="@+id/btn_place_A"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="本廠"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+
+        <Button
+            android:id="@+id/btn_place_B"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="倉庫"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+
+        <Button
+            android:id="@+id/btn_place_C"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="線西"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+
+    </LinearLayout>
+    <!-- 查詢列 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:weightSum="5">
+        <!-- Date Picker -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:paddingHorizontal="8dp"
+                android:background="@drawable/spinner_pattern">
+
+                <TextView
+                    android:id="@+id/date_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="選擇進貨日期"
+                    android:textColor="#747474"
+                    android:textSize="16sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <ImageView
+                    android:id="@+id/calendar_icon"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="日曆圖示"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
+        <!-- Vendor Spinner -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardPreventCornerOverlap="false">
+
+                <Spinner
+                    android:id="@+id/spinnerVendor"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:spinnerMode="dropdown"
+                    android:popupBackground="@android:color/white"
+                    android:paddingHorizontal="12dp"
+                    android:background="@drawable/spinner_pattern"/>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        <!-- Product Spinner -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardPreventCornerOverlap="false">
+
+                <Spinner
+                    android:id="@+id/spinnerProduct"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:spinnerMode="dropdown"
+                    android:popupBackground="@android:color/white"
+                    android:paddingHorizontal="12dp"
+                    android:background="@drawable/spinner_pattern"/>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+
+        <!-- Inspector Spinner -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardPreventCornerOverlap="false">
+
+                <Spinner
+                    android:id="@+id/spinnerInspector"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:spinnerMode="dropdown"
+                    android:popupBackground="@android:color/white"
+                    android:paddingHorizontal="12dp"
+                    android:background="@drawable/spinner_pattern"/>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        <!-- Confirmer Spinner -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:padding="4dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardPreventCornerOverlap="false">
+
+                <Spinner
+                    android:id="@+id/spinnerConfirmPerson"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:spinnerMode="dropdown"
+                    android:popupBackground="@android:color/white"
+                    android:paddingHorizontal="12dp"
+                    android:background="@drawable/spinner_pattern"/>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+        <Button
+            android:id="@+id/btnSearch"
+            android:layout_width="150dp"
+            android:layout_height="50dp"
+            android:background="@drawable/btn_orange"
+            android:text="搜尋"
+            android:textStyle="bold"
+            android:textSize="24dp"
+            />
+    </LinearLayout>
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="20dp"
+        app:cardElevation="6dp"
+        app:cardCornerRadius="20dp"
+        app:cardPreventCornerOverlap="false"
+        app:cardUseCompatPadding="true"
+        android:background="@android:color/white">
+
+        <HorizontalScrollView
+            android:id="@+id/headerScroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="horizontal">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- 表頭 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="@android:color/white"
+                    android:paddingVertical="20dp"
+                    android:paddingHorizontal="20dp">
+
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content"
+                        android:text="進貨日期" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content"
+                        android:text="廠商" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="250dp" android:layout_height="wrap_content"
+                        android:text="品項" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content"
+                        android:text="驗收人員" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="250dp" android:layout_height="wrap_content"
+                        android:text="規格" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content"
+                        android:text="外包裝完整" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content"
+                        android:text="無病媒" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content"
+                        android:text="包材標示" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content"
+                        android:text="進貨數量" android:textSize="16sp" android:textColor="@color/orange" android:gravity="center" />
+                    <TextView android:layout_width="120dp" android:layout_height="wrap_content"
+                        android:text="有效日期批號" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content"
+                        android:text="棧板" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content"
+                        android:text="COA" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="200dp" android:layout_height="wrap_content"
+                        android:text="備註" android:textSize="16sp" android:textColor="#757575"  />
+                    <TextView android:layout_width="80dp" android:layout_height="wrap_content"
+                        android:text="進貨地點" android:textSize="16sp" android:textColor="#757575" />
+                    <TextView android:layout_width="100dp" android:layout_height="wrap_content"
+                        android:text="確認人員" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="50dp" android:layout_height="wrap_content"
+                        android:text="檢視" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="50dp" android:layout_height="wrap_content"
+                        android:text="編輯" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                    <TextView android:layout_width="50dp" android:layout_height="wrap_content"
+                        android:text="刪除" android:textSize="16sp" android:textColor="#757575" android:gravity="center" />
+                </LinearLayout>
+
+                <!-- 分隔線 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@color/gray" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:scrollbars="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/inspectTable"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:divider="?android:dividerHorizontal"
+                        android:showDividers="middle" />
+                </ScrollView>
+            </LinearLayout>
+        </HorizontalScrollView>
+    </androidx.cardview.widget.CardView>
+    <Button
+        android:id="@+id/btnLoadMore"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="載入更多"
+        android:background="@drawable/btn_blue"
+        android:textColor="@android:color/white"
+        android:layout_margin="10dp"/>
+</LinearLayout>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "798945265453",
+    "project_id": "mei-hua-siang",
+    "storage_bucket": "mei-hua-siang.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:798945265453:android:2462452befcbbd02a835a4",
+        "android_client_info": {
+          "package_name": "com.example.deliverysystem"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDryE0eBgv5ur6V-wJi8jKJUnQbdc7jiaI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

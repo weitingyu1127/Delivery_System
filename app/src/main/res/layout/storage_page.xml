@@ -1,0 +1,253 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="50dp"
+    android:background="@android:color/white"
+    android:fitsSystemWindows="true">
+
+    <!-- 標題 -->
+<!--    <TextView-->
+<!--        android:id="@+id/title"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="庫存 Storage"-->
+<!--        android:textSize="28sp"-->
+<!--        android:textColor="#000000" />-->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- 左邊：TextView -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="庫存 Storage"
+            android:textSize="28sp"
+            android:textColor="#000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save_storage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="儲存"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:background="@drawable/btn_green" />
+
+    </LinearLayout>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/gray"
+        android:layout_marginTop="15dp"
+        android:layout_marginBottom="15dp" />
+
+    <!-- 三個位置按鈕 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="10dp"
+        android:weightSum="3">
+
+        <Button
+            android:id="@+id/btn_place_A"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="本廠"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+
+        <Button
+            android:id="@+id/btn_place_B"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="倉庫"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+
+        <Button
+            android:id="@+id/btn_place_C"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/btn_white"
+            android:text="線西"
+            android:textColor="@android:color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_margin="4dp" />
+    </LinearLayout>
+
+    <!-- 外層橫向滑動 -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        android:overScrollMode="never">
+
+        <!-- 橫向容器 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <!-- 原料 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- 左邊：TextView -->
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="原料"
+                        android:textSize="28sp"
+                        android:textColor="#000000"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- 右邊：CardView -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardElevation="6dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardPreventCornerOverlap="false"
+                        android:layout_marginEnd="8dp">
+
+                        <Spinner
+                            android:id="@+id/ingredient_vendor"
+                            android:layout_width="200dp"
+                            android:layout_height="48dp"
+                            android:spinnerMode="dropdown"
+                            android:popupBackground="@android:color/white"
+                            android:paddingHorizontal="12dp"
+                            android:textAlignment="center"
+                            android:background="@android:color/transparent" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+                <androidx.cardview.widget.CardView
+                    android:layout_width="1350dp"
+                    android:layout_height="match_parent"
+                    app:cardElevation="6dp"
+                    app:cardCornerRadius="20dp"
+                    app:cardPreventCornerOverlap="false"
+                    app:cardUseCompatPadding="true"
+                    android:background="@android:color/white">
+
+                    <ScrollView
+                        android:id="@+id/scrollContainerIngredient"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:fillViewport="true"
+                        android:scrollbars="vertical"
+                        android:overScrollMode="never"
+                        android:nestedScrollingEnabled="true">
+
+                        <LinearLayout
+                            android:id="@+id/storageIngredientTable"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="8dp" />
+                    </ScrollView>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+
+            <!-- 物料 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- 左邊：TextView -->
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="物料"
+                        android:textSize="28sp"
+                        android:textColor="#000000"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- 右邊：CardView -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardElevation="6dp"
+                        app:cardBackgroundColor="@android:color/white"
+                        app:cardPreventCornerOverlap="false"
+                        android:layout_marginEnd="8dp">
+
+                        <Spinner
+                            android:id="@+id/material_vendor"
+                            android:layout_width="200dp"
+                            android:layout_height="48dp"
+                            android:spinnerMode="dropdown"
+                            android:popupBackground="@android:color/white"
+                            android:paddingHorizontal="12dp"
+                            android:textAlignment="center"
+                            android:background="@android:color/transparent" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+                <androidx.cardview.widget.CardView
+                    android:layout_width="1325dp"
+                    android:layout_height="match_parent"
+                    app:cardElevation="6dp"
+                    app:cardCornerRadius="20dp"
+                    app:cardPreventCornerOverlap="false"
+                    app:cardUseCompatPadding="true"
+                    android:background="@android:color/white">
+
+                    <ScrollView
+                        android:id="@+id/scrollContainerMaterial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:fillViewport="true"
+                        android:scrollbars="vertical"
+                        android:overScrollMode="never"
+                        android:nestedScrollingEnabled="true">
+
+                        <LinearLayout
+                            android:id="@+id/storageMaterialTable"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="8dp" />
+                    </ScrollView>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+        </LinearLayout>
+    </HorizontalScrollView>
+</LinearLayout>

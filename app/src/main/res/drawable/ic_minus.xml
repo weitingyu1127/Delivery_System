@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="30dp"
+    android:viewportWidth="30"
+    android:viewportHeight="30">
+
+    <!-- 畫紅色橫條（高 4 單位，比原本更明顯） -->
+    <path
+        android:fillColor="#FF0004"
+        android:pathData="M5,14H25V16H5Z"/>
+</vector>
+
