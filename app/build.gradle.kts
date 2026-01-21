@@ -81,4 +81,5 @@ dependencies {
     implementation("org.apache.poi:poi:5.2.5")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.apache.poi:poi-ooxml-lite:5.2.5")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

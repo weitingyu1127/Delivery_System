@@ -277,26 +277,30 @@ public class ConnectDB {
                 });
     }
 
-    /** 照片流水號 */
-    public static void getTodayImageFilename(Consumer<String> callback) {
-        FirebaseStorage storage = FirebaseStorage.getInstance();
-        StorageReference ref = storage.getReference().child("inspect_images/");
+    /** 取得照片序號 */
+    public interface OnSeqRangeReserved {
+        void onComplete(int startSeq);
+    }
+    public static void getImageSeq(String importId, int count, OnSeqRangeReserved cb) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        DocumentReference ref = db.collection("inspect").document(importId)
+                .collection("meta").document("counter");
 
-        String todayPrefix = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
-
-        ref.listAll().addOnSuccessListener(listResult -> {
-            int count = 0;
-            for (StorageReference item : listResult.getItems()) {
-                if (item.getName().startsWith(todayPrefix)) {
-                    count++;
-                }
-            }
-            String filename = todayPrefix + "_" + String.format("%02d", count + 1) + ".jpg";
-            callback.accept(filename);
-        }).addOnFailureListener(e -> {
-            e.printStackTrace();
-            callback.accept(null);
-        });
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot snap = transaction.get(ref);
+                    long next = 1;
+                    if (snap.exists() && snap.contains("nextImageSeq")) {
+                        Long v = snap.getLong("nextImageSeq");
+                        if (v != null) next = v;
+                    }
+                    // 這次保留 [next, next+count-1]
+                    long finalNext = next;
+                    transaction.set(ref, new HashMap<String, Object>() {{
+                        put("nextImageSeq", finalNext + count);
+                    }}, SetOptions.merge());
+                    return (int) next;
+                }).addOnSuccessListener(startSeq -> cb.onComplete(startSeq))
+                .addOnFailureListener(e -> cb.onComplete(-1));
     }
 
     /** 刪除照片 */
@@ -315,7 +319,6 @@ public class ConnectDB {
         }
         toBeDeletedImages.clear();
     }
-
 
     /** 轉換文字 */
     public static String changeFormat(Map<String, Object> record, String key) {
@@ -368,13 +371,12 @@ public class ConnectDB {
     public static void loadInspectRecords(
             String type,
             String placeValue,
-            boolean listenMode,   // true = 監聽最新資料、初始化 lastDoc
+            boolean listenMode,
             Consumer<List<InspectRecord>> callback
     ) {
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        // listenMode = true（第一次載入 / 切換地點） → 使用 SnapshotListener
         if (listenMode) {
 
             // 清除舊監聽避免重複
@@ -961,7 +963,7 @@ public class ConnectDB {
             });
     }
 
-    /** 員工資料 */ //TODO
+    /** 員工資料 */
     private static void fetchUpdatedLists(FirebaseFirestore db,
                                           Context context,
                                           EmployeeUpdateCallback callback) {
@@ -1015,7 +1017,6 @@ public class ConnectDB {
         // 新增文件（自動產生 ID）
         employeeRef.add(data)
                 .addOnSuccessListener(documentReference -> {
-                    // 成功新增員工後，讀取 confirm 與 inspector 清單
                     fetchEmployeeLists(db, callback, true, "新增成功");
                 })
                 .addOnFailureListener(e -> {
@@ -1023,7 +1024,7 @@ public class ConnectDB {
                     callback.onResult(false, "新增失敗：" + e.getMessage(), new ArrayList<>(), new ArrayList<>());
                 });
     }
-    /** 員工資料 */ //TODO
+    /** 員工資料 */
     private static void fetchEmployeeLists(FirebaseFirestore db, EmployeeUpdateCallback callback, boolean success, String message) {
 
         db.collection("employees").get()
@@ -1065,7 +1066,6 @@ public class ConnectDB {
                       List<Map<String, String>> confirmList,
                       List<Map<String, String>> inspectorList);
     }
-
 
     public interface ExportCallback {
         void onResult(boolean success, String message);
